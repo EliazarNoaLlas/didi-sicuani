@@ -13,109 +13,109 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import connectDB from '../config/database.js';
+import conectarBD from '../config/database.js';
 
 dotenv.config();
 
-const createTestUsers = async () => {
+const crearUsuariosPrueba = async () => {
   try {
     // Conectar a MongoDB
-    await connectDB();
+    await conectarBD();
     console.log('✅ Conectado a MongoDB');
 
-    const User = (await import('../models/User.js')).default;
+    const Usuario = (await import('../models/Usuario.js')).default;
 
     // Contraseña para todos los usuarios de prueba
-    const testPassword = 'test123';
-    const hashedPassword = await bcrypt.hash(testPassword, 10);
+    const contrasenaPrueba = 'test123';
+    const contrasenaHasheada = await bcrypt.hash(contrasenaPrueba, 10);
 
     // 1. Crear Pasajero de Prueba
-    const passengerData = {
-      name: 'Juan Pasajero',
-      email: 'pasajero@test.com',
-      password: hashedPassword,
-      userType: 'passenger',
-      phone: '+51987654321',
-      isActive: true,
+    const datosPasajero = {
+      nombre: 'Juan Pasajero',
+      correo: 'pasajero@test.com',
+      contrasena: contrasenaHasheada,
+      tipo_usuario: 'pasajero',
+      telefono: '+51987654321',
+      esta_activo: true,
     };
 
-    let passenger = await User.findOne({ email: passengerData.email });
-    if (passenger) {
+    let pasajero = await Usuario.findOne({ correo: datosPasajero.correo });
+    if (pasajero) {
       console.log('⚠️  Pasajero ya existe, actualizando...');
-      passenger.name = passengerData.name;
-      passenger.password = hashedPassword;
-      passenger.phone = passengerData.phone;
-      await passenger.save();
+      pasajero.nombre = datosPasajero.nombre;
+      pasajero.contrasena = contrasenaHasheada;
+      pasajero.telefono = datosPasajero.telefono;
+      await pasajero.save();
     } else {
-      passenger = await User.create(passengerData);
+      pasajero = await Usuario.create(datosPasajero);
       console.log('✅ Pasajero creado');
     }
 
     // 2. Crear Conductor Taxi
-    const driverTaxiData = {
-      name: 'Carlos Conductor Taxi',
-      email: 'conductor.taxi@test.com',
-      password: hashedPassword,
-      userType: 'driver',
-      phone: '+51987654322',
-      isActive: true,
-      driverInfo: {
-        vehicleType: 'taxi',
-        vehiclePlate: 'ABC-123',
-        vehicleModel: 'Toyota Corolla',
-        licenseNumber: 'LIC-12345',
-        rating: 4.8,
-        totalRides: 150,
-        isOnline: true,
-        isAvailable: true,
-        currentLatitude: -14.2694,
-        currentLongitude: -71.2256,
+    const datosConductorTaxi = {
+      nombre: 'Carlos Conductor Taxi',
+      correo: 'conductor.taxi@test.com',
+      contrasena: contrasenaHasheada,
+      tipo_usuario: 'conductor',
+      telefono: '+51987654322',
+      esta_activo: true,
+      informacion_conductor: {
+        tipo_vehiculo: 'taxi',
+        placa_vehiculo: 'ABC-123',
+        modelo_vehiculo: 'Toyota Corolla',
+        numero_licencia: 'LIC-12345',
+        calificacion: 4.8,
+        total_viajes: 150,
+        esta_en_linea: true,
+        esta_disponible: true,
+        latitud_actual: -14.2694,
+        longitud_actual: -71.2256,
       },
     };
 
-    let driverTaxi = await User.findOne({ email: driverTaxiData.email });
-    if (driverTaxi) {
+    let conductorTaxi = await Usuario.findOne({ correo: datosConductorTaxi.correo });
+    if (conductorTaxi) {
       console.log('⚠️  Conductor Taxi ya existe, actualizando...');
-      driverTaxi.name = driverTaxiData.name;
-      driverTaxi.password = hashedPassword;
-      driverTaxi.driverInfo = driverTaxiData.driverInfo;
-      await driverTaxi.save();
+      conductorTaxi.nombre = datosConductorTaxi.nombre;
+      conductorTaxi.contrasena = contrasenaHasheada;
+      conductorTaxi.informacion_conductor = datosConductorTaxi.informacion_conductor;
+      await conductorTaxi.save();
     } else {
-      driverTaxi = await User.create(driverTaxiData);
+      conductorTaxi = await Usuario.create(datosConductorTaxi);
       console.log('✅ Conductor Taxi creado');
     }
 
     // 3. Crear Conductor Mototaxi
-    const driverMototaxiData = {
-      name: 'Pedro Conductor Mototaxi',
-      email: 'conductor.mototaxi@test.com',
-      password: hashedPassword,
-      userType: 'driver',
-      phone: '+51987654323',
-      isActive: true,
-      driverInfo: {
-        vehicleType: 'mototaxi',
-        vehiclePlate: 'XYZ-789',
-        vehicleModel: 'Honda Biz',
-        licenseNumber: 'LIC-67890',
-        rating: 4.5,
-        totalRides: 200,
-        isOnline: true,
-        isAvailable: true,
-        currentLatitude: -14.2700,
-        currentLongitude: -71.2260,
+    const datosConductorMototaxi = {
+      nombre: 'Pedro Conductor Mototaxi',
+      correo: 'conductor.mototaxi@test.com',
+      contrasena: contrasenaHasheada,
+      tipo_usuario: 'conductor',
+      telefono: '+51987654323',
+      esta_activo: true,
+      informacion_conductor: {
+        tipo_vehiculo: 'mototaxi',
+        placa_vehiculo: 'XYZ-789',
+        modelo_vehiculo: 'Honda Biz',
+        numero_licencia: 'LIC-67890',
+        calificacion: 4.5,
+        total_viajes: 200,
+        esta_en_linea: true,
+        esta_disponible: true,
+        latitud_actual: -14.2700,
+        longitud_actual: -71.2260,
       },
     };
 
-    let driverMototaxi = await User.findOne({ email: driverMototaxiData.email });
-    if (driverMototaxi) {
+    let conductorMototaxi = await Usuario.findOne({ correo: datosConductorMototaxi.correo });
+    if (conductorMototaxi) {
       console.log('⚠️  Conductor Mototaxi ya existe, actualizando...');
-      driverMototaxi.name = driverMototaxiData.name;
-      driverMototaxi.password = hashedPassword;
-      driverMototaxi.driverInfo = driverMototaxiData.driverInfo;
-      await driverMototaxi.save();
+      conductorMototaxi.nombre = datosConductorMototaxi.nombre;
+      conductorMototaxi.contrasena = contrasenaHasheada;
+      conductorMototaxi.informacion_conductor = datosConductorMototaxi.informacion_conductor;
+      await conductorMototaxi.save();
     } else {
-      driverMototaxi = await User.create(driverMototaxiData);
+      conductorMototaxi = await Usuario.create(datosConductorMototaxi);
       console.log('✅ Conductor Mototaxi creado');
     }
 
@@ -123,19 +123,19 @@ const createTestUsers = async () => {
     console.log('\n📋 Usuarios de Prueba Creados:\n');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('👤 PASAJERO:');
-    console.log(`   Email: ${passenger.email}`);
-    console.log(`   Password: ${testPassword}`);
-    console.log(`   ID: ${passenger._id}`);
+    console.log(`   Correo: ${pasajero.correo}`);
+    console.log(`   Contraseña: ${contrasenaPrueba}`);
+    console.log(`   ID: ${pasajero._id}`);
     console.log('\n🚕 CONDUCTOR TAXI:');
-    console.log(`   Email: ${driverTaxi.email}`);
-    console.log(`   Password: ${testPassword}`);
-    console.log(`   ID: ${driverTaxi._id}`);
-    console.log(`   Ubicación: ${driverTaxi.driverInfo.currentLatitude}, ${driverTaxi.driverInfo.currentLongitude}`);
+    console.log(`   Correo: ${conductorTaxi.correo}`);
+    console.log(`   Contraseña: ${contrasenaPrueba}`);
+    console.log(`   ID: ${conductorTaxi._id}`);
+    console.log(`   Ubicación: ${conductorTaxi.informacion_conductor.latitud_actual}, ${conductorTaxi.informacion_conductor.longitud_actual}`);
     console.log('\n🏍️  CONDUCTOR MOTOTAXI:');
-    console.log(`   Email: ${driverMototaxi.email}`);
-    console.log(`   Password: ${testPassword}`);
-    console.log(`   ID: ${driverMototaxi._id}`);
-    console.log(`   Ubicación: ${driverMototaxi.driverInfo.currentLatitude}, ${driverMototaxi.driverInfo.currentLongitude}`);
+    console.log(`   Correo: ${conductorMototaxi.correo}`);
+    console.log(`   Contraseña: ${contrasenaPrueba}`);
+    console.log(`   ID: ${conductorMototaxi._id}`);
+    console.log(`   Ubicación: ${conductorMototaxi.informacion_conductor.latitud_actual}, ${conductorMototaxi.informacion_conductor.longitud_actual}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     console.log('💡 Próximos pasos:');
@@ -150,5 +150,4 @@ const createTestUsers = async () => {
   }
 };
 
-createTestUsers();
-
+crearUsuariosPrueba();

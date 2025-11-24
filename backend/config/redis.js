@@ -1,93 +1,104 @@
 import { createClient } from 'redis';
 
-let redisClient = null;
-let isConnecting = false;
-let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 5;
+let clienteRedis = null;
+let estaConectando = false;
+let intentosReconexion = 0;
+const MAX_INTENTOS_RECONEXION = 5;
 
-const connectRedis = async () => {
+/**
+ * Conecta al servidor Redis
+ * @returns {Promise<RedisClient|null>} Cliente Redis o null si falla la conexión
+ */
+const conectarRedis = async () => {
   // Evitar múltiples intentos de conexión simultáneos
-  if (isConnecting) {
-    return redisClient;
+  if (estaConectando) {
+    return clienteRedis;
   }
 
-  if (redisClient && redisClient.isOpen) {
-    return redisClient;
+  if (clienteRedis && clienteRedis.isOpen) {
+    return clienteRedis;
   }
 
   try {
-    isConnecting = true;
+    estaConectando = true;
     
-    redisClient = createClient({
+    clienteRedis = createClient({
       host: process.env.REDIS_HOST || 'localhost',
       port: process.env.REDIS_PORT || 6379,
       password: process.env.REDIS_PASSWORD || undefined,
       socket: {
-        reconnectStrategy: (retries) => {
-          if (retries > MAX_RECONNECT_ATTEMPTS) {
+        reconnectStrategy: (reintentos) => {
+          if (reintentos > MAX_INTENTOS_RECONEXION) {
             console.error('❌ Redis: Máximo de intentos de reconexión alcanzado');
-            return new Error('Max reconnection attempts reached');
+            return new Error('Máximo de intentos de reconexión alcanzado');
           }
-          const delay = Math.min(retries * 100, 3000);
-          console.log(`🔄 Redis: Intentando reconectar en ${delay}ms (intento ${retries}/${MAX_RECONNECT_ATTEMPTS})`);
-          return delay;
+          const retraso = Math.min(reintentos * 100, 3000);
+          console.log(`🔄 Redis: Intentando reconectar en ${retraso}ms (intento ${reintentos}/${MAX_INTENTOS_RECONEXION})`);
+          return retraso;
         },
         connectTimeout: 5000,
       },
     });
 
-    redisClient.on('error', (err) => {
-      console.error('Redis Client Error:', err.message);
+    clienteRedis.on('error', (error) => {
+      console.error('❌ Error del cliente Redis:', error.message);
       // No lanzar error, solo loguear para permitir que la app continúe
     });
 
-    redisClient.on('connect', () => {
-      console.log('Redis Client Connected');
-      reconnectAttempts = 0;
+    clienteRedis.on('connect', () => {
+      console.log('🔄 Cliente Redis conectando...');
+      intentosReconexion = 0;
     });
 
-    redisClient.on('ready', () => {
-      console.log('✅ Redis ready');
-      reconnectAttempts = 0;
+    clienteRedis.on('ready', () => {
+      console.log('✅ Redis listo');
+      intentosReconexion = 0;
     });
 
-    redisClient.on('reconnecting', () => {
-      reconnectAttempts++;
-      console.log(`🔄 Redis: Reconectando... (intento ${reconnectAttempts})`);
+    clienteRedis.on('reconnecting', () => {
+      intentosReconexion++;
+      console.log(`🔄 Redis: Reconectando... (intento ${intentosReconexion})`);
     });
 
-    redisClient.on('end', () => {
-      console.log('Redis connection ended');
+    clienteRedis.on('end', () => {
+      console.log('⚠️  Conexión Redis finalizada');
     });
 
-    await redisClient.connect();
-    isConnecting = false;
-    return redisClient;
+    await clienteRedis.connect();
+    estaConectando = false;
+    return clienteRedis;
   } catch (error) {
-    isConnecting = false;
-    console.error('Error connecting to Redis:', error.message);
+    estaConectando = false;
+    console.error('❌ Error al conectar a Redis:', error.message);
     // No lanzar error fatal, permitir que la app continúe sin Redis
     console.warn('⚠️  Continuando sin Redis. Algunas funcionalidades pueden estar limitadas.');
     return null;
   }
 };
 
-const getRedisClient = () => {
-  if (!redisClient || !redisClient.isOpen) {
+/**
+ * Obtiene el cliente Redis actual
+ * @returns {RedisClient|null} Cliente Redis o null si no está disponible
+ */
+const obtenerClienteRedis = () => {
+  if (!clienteRedis || !clienteRedis.isOpen) {
     // Intentar reconectar si no está conectado
     console.warn('⚠️  Redis no está conectado. Intentando reconectar...');
-    connectRedis().catch(() => {
+    conectarRedis().catch(() => {
       // Si falla la reconexión, retornar null para que el código maneje el caso
     });
     
     // Si aún no hay cliente después del intento, retornar null
-    if (!redisClient || !redisClient.isOpen) {
+    if (!clienteRedis || !clienteRedis.isOpen) {
       return null;
     }
   }
-  return redisClient;
+  return clienteRedis;
 };
 
-export default connectRedis;
-export { getRedisClient };
+export default conectarRedis;
+export { obtenerClienteRedis };
+// Exportar también con los nombres anteriores para compatibilidad
+export { conectarRedis as connectRedis };
+export { obtenerClienteRedis as getRedisClient };
 

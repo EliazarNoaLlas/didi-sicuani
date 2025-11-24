@@ -6,49 +6,63 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import connectDB from './config/database.js';
-import connectRedis from './config/redis.js';
-import { initializeSocket } from './utils/socket.js';
+import conectarBD from './config/database.js';
+import conectarRedis from './config/redis.js';
+import { inicializarSocket } from './utils/utilidades-socket.js';
 import { swaggerSpec, swaggerUi } from './config/swagger.js';
-import './utils/cron.js'; // Inicializar cron jobs
+import './utils/tareas-programadas.js'; // Inicializar tareas programadas
 
 // Nota: PostgreSQL ha sido removido. El proyecto ahora usa solo MongoDB.
 
-// Load environment variables
+// Cargar variables de entorno
 dotenv.config();
 
-const app = express();
-const httpServer = createServer(app);
+const aplicacion = express();
+const servidorHttp = createServer(aplicacion);
 
-// Socket.io setup
-const io = new Server(httpServer, {
+// Configuración de Socket.io
+const io = new Server(servidorHttp, {
   cors: {
     origin: process.env.SOCKET_CORS_ORIGIN || "http://localhost:5173",
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST"],
+    credentials: true,
+    allowedHeaders: ["Authorization", "Content-Type"],
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
 });
 
-// Initialize Socket.io
-initializeSocket(io);
+// Inicializar Socket.io
+inicializarSocket(io);
 
 // Middleware
-app.use(helmet());
-app.use(compression());
-app.use(morgan('dev'));
-app.use(cors({
-  origin: process.env.SOCKET_CORS_ORIGIN || "http://localhost:5173",
-  credentials: true
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+aplicacion.use(helmet());
+aplicacion.use(compression());
+aplicacion.use(morgan('dev'));
 
-// Swagger Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+// Configuración CORS más completa
+const opcionesCors = {
+  origin: process.env.SOCKET_CORS_ORIGIN || "http://localhost:5173",
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+aplicacion.use(cors(opcionesCors));
+
+aplicacion.use(express.json({ limit: '10mb' }));
+aplicacion.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Documentación Swagger
+aplicacion.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: 'DiDi-Sicuani API Documentation'
 }));
 
-// Health check
+// Verificación de salud
 /**
  * @swagger
  * /health:
@@ -63,80 +77,94 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
  *             schema:
  *               type: object
  *               properties:
- *                 status:
+ *                 estado:
  *                   type: string
  *                   example: OK
  *                 timestamp:
  *                   type: string
  *                   example: 2024-01-15T10:30:00.000Z
- *                 service:
+ *                 servicio:
  *                   type: string
  *                   example: DiDi-Sicuani Backend
  */
-app.get('/health', (req, res) => {
+aplicacion.get('/health', (req, res) => {
   res.json({ 
-    status: 'OK', 
+    estado: 'OK', 
     timestamp: new Date().toISOString(),
-    service: 'DiDi-Sicuani Backend'
+    servicio: 'DiDi-Sicuani Backend'
   });
 });
 
-// Routes
-import authRoutes from './routes/auth.routes.js';
-import userRoutes from './routes/user.routes.js';
-import driverRoutes from './routes/driver.routes.js';
-import rideRoutes from './routes/rides.routes.js';
-import biddingRoutes from './routes/bidding.routes.js';
-import geocodingRoutes from './routes/geocoding.routes.js';
-import routeRoutes from './routes/route.routes.js';
-import queueRoutes from './routes/queue.routes.js';
-import adminRoutes from './routes/admin.routes.js';
+// Rutas
+import rutasAutenticacion from './routes/rutas-autenticacion.js';
+import rutasUsuario from './routes/rutas-usuario.js';
+import rutasConductor from './routes/rutas-conductor.js';
+import rutasViajes from './routes/rutas-viajes.js';
+import rutasSubasta from './routes/rutas-subasta.js';
+import rutasGeocodificacion from './routes/rutas-geocodificacion.js';
+import rutasRuta from './routes/rutas-ruta.js';
+import rutasCola from './routes/rutas-cola.js';
+import rutasAdmin from './routes/rutas-admin.js';
 
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/drivers', driverRoutes);
-app.use('/api/rides', rideRoutes);
-app.use('/api/bidding', biddingRoutes);
-app.use('/api/geocoding', geocodingRoutes);
-app.use('/api/routes', routeRoutes);
-app.use('/api/queue', queueRoutes);
-app.use('/api/admin', adminRoutes);
+aplicacion.use('/api/autenticacion', rutasAutenticacion);
+aplicacion.use('/api/usuarios', rutasUsuario);
+aplicacion.use('/api/conductores', rutasConductor);
+aplicacion.use('/api/viajes', rutasViajes);
+aplicacion.use('/api/subasta', rutasSubasta);
+aplicacion.use('/api/geocodificacion', rutasGeocodificacion);
+aplicacion.use('/api/rutas', rutasRuta);
+aplicacion.use('/api/cola', rutasCola);
+aplicacion.use('/api/administrador', rutasAdmin);
 
-// También mantener ruta legacy para compatibilidad
-app.use('/api/ride', rideRoutes);
+// También mantener rutas legacy en inglés para compatibilidad
+aplicacion.use('/api/auth', rutasAutenticacion);
+aplicacion.use('/api/users', rutasUsuario);
+aplicacion.use('/api/drivers', rutasConductor);
+aplicacion.use('/api/rides', rutasViajes);
+aplicacion.use('/api/bidding', rutasSubasta);
+aplicacion.use('/api/geocoding', rutasGeocodificacion);
+aplicacion.use('/api/routes', rutasRuta);
+aplicacion.use('/api/queue', rutasCola);
+aplicacion.use('/api/admin', rutasAdmin);
+aplicacion.use('/api/ride', rutasViajes);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
+// Middleware de manejo de errores
+aplicacion.use((err, req, res, next) => {
   console.error('Error:', err);
   res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error',
+    exito: false,
+    mensaje: err.message || 'Error interno del servidor',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 
-// 404 handler
-app.use((req, res) => {
+// Manejador 404 - Solo para rutas que no sean de Socket.io
+aplicacion.use((req, res) => {
+  // Ignorar peticiones de Socket.io
+  if (req.path.startsWith('/socket.io/')) {
+    return res.status(404).end();
+  }
+  
   res.status(404).json({
-    success: false,
-    message: 'Route not found'
+    exito: false,
+    mensaje: 'Ruta no encontrada'
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
+// Iniciar servidor
+const PUERTO = process.env.PORT || 5000;
 
-const startServer = async () => {
+const iniciarServidor = async () => {
   try {
-    // Connect to MongoDB
-    await connectDB();
-    console.log('✅ MongoDB connected');
+    // Conectar a MongoDB
+    await conectarBD();
+    console.log('✅ MongoDB conectado');
 
-    // Connect to Redis (opcional, no crítico)
+    // Conectar a Redis (opcional, no crítico)
     try {
-      const redis = await connectRedis();
+      const redis = await conectarRedis();
       if (redis && redis.isOpen) {
-        console.log('✅ Redis connected');
+        console.log('✅ Redis conectado');
       } else {
         console.warn('⚠️  Redis no disponible, continuando sin cache');
       }
@@ -144,20 +172,19 @@ const startServer = async () => {
       console.warn('⚠️  Redis no disponible, continuando sin cache:', error.message);
     }
 
-    // Start HTTP server
-    httpServer.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📡 Socket.io ready`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-      console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+    // Iniciar servidor HTTP
+    servidorHttp.listen(PUERTO, () => {
+      console.log(`🚀 Servidor corriendo en el puerto ${PUERTO}`);
+      console.log(`📡 Socket.io listo`);
+      console.log(`🌍 Entorno: ${process.env.NODE_ENV}`);
+      console.log(`📚 Documentación API: http://localhost:${PUERTO}/api-docs`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    console.error('❌ Error al iniciar el servidor:', error);
     process.exit(1);
   }
 };
 
-startServer();
+iniciarServidor();
 
 export { io };
-

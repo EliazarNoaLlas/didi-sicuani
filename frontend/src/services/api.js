@@ -1,40 +1,66 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+/**
+ * Servicio de API
+ * Cliente HTTP centralizado para todas las peticiones al backend
+ */
 
-const api = axios.create({
-  baseURL: API_URL,
+const URL_API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const clienteApi = axios.create({
+  baseURL: URL_API,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor
-api.interceptors.request.use(
-  (config) => {
-    const token = useAuthStore.getState().token;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+/**
+ * Interceptor de peticiones
+ * Agrega automáticamente el token de autenticación a todas las peticiones
+ */
+clienteApi.interceptors.request.use(
+  (configuracion) => {
+    try {
+      const token = useAuthStore.getState().token;
+      if (token) {
+        configuracion.headers.Authorization = `Bearer ${token}`;
+      } else {
+        console.warn('⚠️ No hay token disponible para la petición:', configuracion.url);
+      }
+    } catch (error) {
+      console.error('Error obteniendo token del store:', error);
     }
-    return config;
+    return configuracion;
   },
   (error) => {
     return Promise.reject(error);
   }
 );
 
-// Response interceptor
-api.interceptors.response.use(
-  (response) => response,
+/**
+ * Interceptor de respuestas
+ * Maneja errores de autenticación y redirige al login si es necesario
+ */
+clienteApi.interceptors.response.use(
+  (respuesta) => respuesta,
   (error) => {
+    // Solo redirigir si no estamos en la página de login/registro
+    // Esto permite que el componente Login maneje los errores 401 del login
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
+      const rutaActual = window.location.pathname;
+      const esPaginaAutenticacion = rutaActual === '/iniciar-sesion' || rutaActual === '/registro';
+      
+      if (!esPaginaAutenticacion) {
+        useAuthStore.getState().logout();
+        window.location.href = '/iniciar-sesion';
+      }
     }
     return Promise.reject(error);
   }
 );
 
-export default api;
+// Exportar con nombre en español y mantener compatibilidad
+export default clienteApi;
+export { clienteApi as api }; // Alias para compatibilidad
 

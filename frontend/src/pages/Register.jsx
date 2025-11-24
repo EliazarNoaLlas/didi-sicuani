@@ -5,11 +5,11 @@ import toast from 'react-hot-toast';
 
 export default function Register() {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    userType: 'passenger',
-    phone: '',
+    nombre: '',
+    correo: '',
+    contrasena: '',
+    tipoUsuario: 'pasajero',
+    telefono: '',
   });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -19,9 +19,9 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await api.post('/auth/register', formData);
+      await api.post('/autenticacion/register', formData);
       toast.success('¡Registro exitoso! Por favor inicia sesión');
-      navigate('/login');
+      navigate('/iniciar-sesion');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error al registrarse');
     } finally {
@@ -41,9 +41,9 @@ export default function Register() {
             <input
               type="text"
               required
-              value={formData.name}
+              value={formData.nombre}
               onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
+                setFormData({ ...formData, nombre: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
@@ -55,9 +55,9 @@ export default function Register() {
             <input
               type="email"
               required
-              value={formData.email}
+              value={formData.correo}
               onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
+                setFormData({ ...formData, correo: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
@@ -70,9 +70,9 @@ export default function Register() {
               type="password"
               required
               minLength={6}
-              value={formData.password}
+              value={formData.contrasena}
               onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
+                setFormData({ ...formData, contrasena: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
@@ -83,9 +83,9 @@ export default function Register() {
             </label>
             <input
               type="tel"
-              value={formData.phone}
+              value={formData.telefono}
               onChange={(e) =>
-                setFormData({ ...formData, phone: e.target.value })
+                setFormData({ ...formData, telefono: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
@@ -95,14 +95,14 @@ export default function Register() {
               Tipo de Usuario
             </label>
             <select
-              value={formData.userType}
+              value={formData.tipoUsuario}
               onChange={(e) =>
-                setFormData({ ...formData, userType: e.target.value })
+                setFormData({ ...formData, tipoUsuario: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
-              <option value="passenger">Pasajero</option>
-              <option value="driver">Conductor</option>
+              <option value="pasajero">Pasajero</option>
+              <option value="conductor">Conductor</option>
             </select>
           </div>
           <button
@@ -115,7 +115,7 @@ export default function Register() {
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">
           ¿Ya tienes cuenta?{' '}
-          <a href="/login" className="text-blue-500 hover:underline">
+          <a href="/iniciar-sesion" className="text-blue-500 hover:underline">
             Inicia sesión
           </a>
         </p>

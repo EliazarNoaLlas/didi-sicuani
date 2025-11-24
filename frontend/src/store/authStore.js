@@ -10,11 +10,13 @@ export const useAuthStore = create(
       userType: null, // 'passenger', 'driver', 'admin'
 
       setAuth: (user, token) => {
+        // Normalizar tipoUsuario (puede venir como tipoUsuario, userType o role)
+        const tipoUsuario = user?.tipoUsuario || user?.userType || user?.role;
         set({
           user,
           token,
           isAuthenticated: true,
-          userType: user?.role || user?.userType,
+          userType: tipoUsuario,
         });
       },
 

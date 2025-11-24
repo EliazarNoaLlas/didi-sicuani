@@ -1,34 +1,40 @@
 import { io } from 'socket.io-client';
 import { useAuthStore } from '../store/authStore';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+/**
+ * Servicio de Socket.io
+ * Maneja la conexión en tiempo real con el servidor
+ */
+
+const URL_SOCKET = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 let socket = null;
-let isConnecting = false;
-let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
+let estaConectando = false;
+let intentosReconexion = 0;
+const MAX_INTENTOS_RECONEXION = 10;
 
 /**
  * Inicializa la conexión Socket.io con reconexión automática
  * Mantiene una única instancia (singleton)
+ * @returns {Object|null} Instancia del socket o null si no hay token
  */
-export const initSocket = () => {
+export const inicializarSocket = () => {
   // Si ya hay una conexión activa, retornarla
   if (socket && socket.connected) {
     return socket;
   }
 
   // Si ya está intentando conectar, esperar
-  if (isConnecting) {
+  if (estaConectando) {
     return socket;
   }
 
-  isConnecting = true;
+  estaConectando = true;
   const token = useAuthStore.getState().token;
 
   if (!token) {
     console.warn('⚠️ No hay token disponible para Socket.io');
-    isConnecting = false;
+    estaConectando = false;
     return null;
   }
 
@@ -40,7 +46,7 @@ export const initSocket = () => {
   }
 
   // Crear nueva conexión
-  socket = io(SOCKET_URL, {
+  socket = io(URL_SOCKET, {
     auth: {
       token,
     },
@@ -48,62 +54,68 @@ export const initSocket = () => {
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
-    reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+    reconnectionAttempts: MAX_INTENTOS_RECONEXION,
     timeout: 20000,
     forceNew: false, // Reutilizar conexión si es posible
+    upgrade: true,
+    rememberUpgrade: true,
+    withCredentials: true,
   });
 
-  // Event: Conexión exitosa
+  // Evento: Conexión exitosa
   socket.on('connect', () => {
-    console.log('✅ Socket connected:', socket.id);
-    reconnectAttempts = 0;
-    isConnecting = false;
+    console.log('✅ Socket conectado:', socket.id);
+    intentosReconexion = 0;
+    estaConectando = false;
   });
 
-  // Event: Desconexión
-  socket.on('disconnect', (reason) => {
-    console.log('❌ Socket disconnected:', reason);
-    isConnecting = false;
+  // Evento: Desconexión
+  socket.on('disconnect', (razon) => {
+    // Solo loguear desconexiones importantes, no "transport close" que es normal durante upgrade
+    if (razon !== 'transport close') {
+      console.log('❌ Socket desconectado:', razon);
+    }
+    estaConectando = false;
 
     // Si fue una desconexión involuntaria, intentar reconectar
-    if (reason === 'io server disconnect') {
+    if (razon === 'io server disconnect') {
       // El servidor desconectó el socket, reconectar manualmente
       socket.connect();
     }
   });
 
-  // Event: Intentando reconectar
-  socket.on('reconnect_attempt', (attemptNumber) => {
-    reconnectAttempts = attemptNumber;
-    console.log(`🔄 Intentando reconectar... (intento ${attemptNumber}/${MAX_RECONNECT_ATTEMPTS})`);
+  // Evento: Intentando reconectar
+  socket.on('reconnect_attempt', (numeroIntento) => {
+    intentosReconexion = numeroIntento;
+    console.log(`🔄 Intentando reconectar... (intento ${numeroIntento}/${MAX_INTENTOS_RECONEXION})`);
   });
 
-  // Event: Reconexión exitosa
-  socket.on('reconnect', (attemptNumber) => {
-    console.log(`✅ Socket reconectado después de ${attemptNumber} intentos`);
-    reconnectAttempts = 0;
+  // Evento: Reconexión exitosa
+  socket.on('reconnect', (numeroIntento) => {
+    console.log(`✅ Socket reconectado después de ${numeroIntento} intentos`);
+    intentosReconexion = 0;
   });
 
-  // Event: Error de reconexión
+  // Evento: Error de reconexión
   socket.on('reconnect_error', (error) => {
     console.error('❌ Error de reconexión:', error.message);
   });
 
-  // Event: Fallo de reconexión
+  // Evento: Fallo de reconexión
   socket.on('reconnect_failed', () => {
-    console.error('❌ Fallo al reconectar después de', MAX_RECONNECT_ATTEMPTS, 'intentos');
+    console.error('❌ Fallo al reconectar después de', MAX_INTENTOS_RECONEXION, 'intentos');
     // Opcional: Notificar al usuario o intentar reconectar manualmente
   });
 
-  // Event: Error de conexión
+  // Evento: Error de conexión
   socket.on('connect_error', (error) => {
-    console.error('❌ Socket connection error:', error.message);
-    isConnecting = false;
+    console.error('❌ Error de conexión del socket:', error.message);
+    estaConectando = false;
   });
 
-  // Event: Error general
+  // Evento: Error general
   socket.on('error', (error) => {
-    console.error('❌ Socket error:', error);
+    console.error('❌ Error del socket:', error);
   });
 
   return socket;
@@ -111,36 +123,58 @@ export const initSocket = () => {
 
 /**
  * Obtiene la instancia del socket, inicializándola si es necesario
+ * @returns {Object|null} Instancia del socket o null si no se puede conectar
  */
-export const getSocket = () => {
-  if (!socket || !socket.connected) {
-    return initSocket();
+export const obtenerSocket = () => {
+  // Si el socket existe y está conectado, retornarlo
+  if (socket && socket.connected) {
+    return socket;
   }
+  
+  // Si el socket existe pero no está conectado y no estamos intentando conectar, inicializar
+  if (socket && !socket.connected && !estaConectando) {
+    return inicializarSocket();
+  }
+  
+  // Si no hay socket y no estamos intentando conectar, inicializar
+  if (!socket && !estaConectando) {
+    return inicializarSocket();
+  }
+  
+  // Si estamos intentando conectar, retornar el socket existente (puede ser null)
   return socket;
 };
 
 /**
  * Desconecta el socket completamente
  */
-export const disconnectSocket = () => {
+export const desconectarSocket = () => {
   if (socket) {
     socket.removeAllListeners();
     socket.disconnect();
     socket = null;
-    isConnecting = false;
-    reconnectAttempts = 0;
+    estaConectando = false;
+    intentosReconexion = 0;
   }
 };
 
 /**
  * Actualiza el token de autenticación del socket
  * Útil cuando el usuario hace login o el token se renueva
+ * @param {string} nuevoToken - Nuevo token JWT
+ * @returns {Object|null} Nueva instancia del socket
  */
-export const updateSocketToken = (newToken) => {
+export const actualizarTokenSocket = (nuevoToken) => {
   if (socket) {
     // Desconectar y reconectar con nuevo token
-    disconnectSocket();
+    desconectarSocket();
   }
-  return initSocket();
+  return inicializarSocket();
 };
+
+// Exportar también con nombres en inglés para compatibilidad
+export const initSocket = inicializarSocket;
+export const getSocket = obtenerSocket;
+export const disconnectSocket = desconectarSocket;
+export const updateSocketToken = actualizarTokenSocket;
 

@@ -5,10 +5,13 @@ import { initSocket } from '../services/socket';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
+// Importar getState para verificar el token
+const { getState } = useAuthStore;
+
 export default function Login() {
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    correo: '',
+    contrasena: '',
   });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -19,10 +22,35 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', formData);
-      const { user, token } = response.data.data;
+      const response = await api.post('/autenticacion/login', formData);
+      
+      // Verificar que la respuesta sea exitosa
+      if (!response.data || !response.data.exito) {
+        throw new Error(response.data?.mensaje || 'Error al iniciar sesión');
+      }
+      
+      const { usuario, user, token } = response.data.datos || response.data.data || {};
+      
+      if (!token) {
+        throw new Error('No se recibió token de autenticación');
+      }
+      
+      // El backend puede devolver 'usuario' o 'user' (compatibilidad)
+      const usuarioData = usuario || user;
 
-      setAuth(user, token);
+      if (!usuarioData) {
+        throw new Error('No se recibieron datos del usuario');
+      }
+
+      setAuth(usuarioData, token);
+      
+      // Verificar que el token se guardó correctamente
+      const tokenGuardado = getState().token;
+      if (!tokenGuardado) {
+        console.error('⚠️ Error: El token no se guardó en el store');
+      } else {
+        console.log('✅ Token guardado correctamente en el store');
+      }
       
       // Inicializar socket después del login
       setTimeout(() => {
@@ -32,17 +60,21 @@ export default function Login() {
       toast.success('¡Bienvenido!');
 
       // Redirigir según tipo de usuario
-      if (user.role === 'passenger' || user.userType === 'passenger') {
-        navigate('/passenger');
-      } else if (user.role === 'driver' || user.userType === 'driver') {
-        navigate('/driver');
-      } else if (user.role === 'admin' || user.userType === 'admin') {
-        navigate('/admin');
+      const tipoUsuario = usuarioData.tipoUsuario || usuarioData.userType || usuarioData.role;
+      if (tipoUsuario === 'pasajero' || tipoUsuario === 'passenger') {
+        navigate('/pasajero');
+      } else if (tipoUsuario === 'conductor' || tipoUsuario === 'driver') {
+        navigate('/conductor');
+      } else if (tipoUsuario === 'administrador' || tipoUsuario === 'admin') {
+        navigate('/administrador');
       } else {
         navigate('/');
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al iniciar sesión');
+      // El backend devuelve 'mensaje' en español
+      const mensajeError = error.response?.data?.mensaje || error.response?.data?.message || 'Error al iniciar sesión';
+      toast.error(mensajeError);
+      console.error('Error en login:', error.response?.data || error);
     } finally {
       setLoading(false);
     }
@@ -60,9 +92,9 @@ export default function Login() {
             <input
               type="email"
               required
-              value={formData.email}
+              value={formData.correo}
               onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
+                setFormData({ ...formData, correo: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="tu@email.com"
@@ -75,9 +107,9 @@ export default function Login() {
             <input
               type="password"
               required
-              value={formData.password}
+              value={formData.contrasena}
               onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
+                setFormData({ ...formData, contrasena: e.target.value })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="••••••••"
@@ -93,7 +125,7 @@ export default function Login() {
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">
           ¿No tienes cuenta?{' '}
-          <a href="/register" className="text-blue-500 hover:underline">
+          <a href="/registro" className="text-blue-500 hover:underline">
             Regístrate
           </a>
         </p>

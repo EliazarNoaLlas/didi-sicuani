@@ -6,7 +6,7 @@ export default function PassengerDashboard() {
       <h1 className="text-3xl font-bold mb-6">Panel de Pasajero</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Link
-          to="/request-ride"
+          to="/solicitar-viaje"
           className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition"
         >
           <h2 className="text-xl font-semibold mb-2">🚗 Solicitar Viaje</h2>
@@ -14,10 +14,13 @@ export default function PassengerDashboard() {
             Solicita un viaje y propón tu precio
           </p>
         </Link>
-        <div className="bg-white p-6 rounded-lg shadow">
+        <Link
+          to="/historial-pasajero"
+          className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition"
+        >
           <h2 className="text-xl font-semibold mb-2">📋 Historial</h2>
           <p className="text-gray-600">Ver tus viajes anteriores</p>
-        </div>
+        </Link>
       </div>
     </div>
   );

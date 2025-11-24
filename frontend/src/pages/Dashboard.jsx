@@ -4,18 +4,19 @@ import { useEffect } from 'react';
 
 export default function Dashboard() {
   const { userType } = useAuthStore();
-  const navigate = useNavigate();
+  const navegar = useNavigate();
 
   useEffect(() => {
     // Redirigir según tipo de usuario
-    if (userType === 'passenger') {
-      navigate('/passenger');
-    } else if (userType === 'driver') {
-      navigate('/driver');
-    } else if (userType === 'admin') {
-      navigate('/admin');
+    const tipoUsuario = userType;
+    if (tipoUsuario === 'pasajero' || tipoUsuario === 'passenger') {
+      navegar('/pasajero');
+    } else if (tipoUsuario === 'conductor' || tipoUsuario === 'driver') {
+      navegar('/conductor');
+    } else if (tipoUsuario === 'administrador' || tipoUsuario === 'admin') {
+      navegar('/administrador');
     }
-  }, [userType, navigate]);
+  }, [userType, navegar]);
 
   return (
     <div className="flex items-center justify-center min-h-screen">

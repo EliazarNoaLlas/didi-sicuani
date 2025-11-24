@@ -21,7 +21,7 @@ cron.schedule('*/5 * * * *', async () => {
 // Limpiar bids expirados cada hora
 cron.schedule('0 * * * *', async () => {
   try {
-    const Bid = (await import('../models/Bid.js')).default;
+    const Bid = (await import('../models/Oferta.js')).default;
     const now = new Date();
     
     await Bid.updateMany(
@@ -43,8 +43,8 @@ cron.schedule('0 * * * *', async () => {
 // Limpiar ride requests expirados cada 30 minutos
 cron.schedule('*/30 * * * *', async () => {
   try {
-    const RideRequest = (await import('../models/RideRequest.js')).default;
-    const biddingService = (await import('../services/bidding.service.js')).default;
+    const RideRequest = (await import('../models/SolicitudViaje.js')).default;
+    const servicioSubasta = (await import('../services/servicio-subasta.js')).default;
     const now = new Date();
     
     const expiredRides = await RideRequest.find({
@@ -53,7 +53,7 @@ cron.schedule('*/30 * * * *', async () => {
     });
     
     for (const ride of expiredRides) {
-      await biddingService.handleBiddingTimeout(ride._id.toString());
+      await servicioSubasta.manejarTiempoExpiradoSubasta(ride._id.toString());
     }
     
     if (expiredRides.length > 0) {

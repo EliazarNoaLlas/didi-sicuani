@@ -1,7 +1,10 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 
-const options = {
+/**
+ * Configuración de Swagger/OpenAPI para la documentación de la API
+ */
+const opciones = {
   definition: {
     openapi: '3.0.0',
     info: {
@@ -9,7 +12,7 @@ const options = {
       version: '1.0.0',
       description: 'API REST para la plataforma de movilidad urbana DiDi-Sicuani con sistema de Reverse Bidding',
       contact: {
-        name: 'DiDi-Sicuani Team',
+        name: 'Equipo DiDi-Sicuani',
         email: 'support@didi-sicuani.com'
       },
       license: {
@@ -46,7 +49,7 @@ const options = {
             },
             message: {
               type: 'string',
-              example: 'Error message'
+              example: 'Mensaje de error'
             }
           }
         },
@@ -227,7 +230,12 @@ const options = {
   apis: ['./routes/*.js', './server.js', './routes/swagger-docs.js']
 };
 
-const swaggerSpec = swaggerJsdoc(options);
+/**
+ * Especificación de Swagger generada a partir de las opciones
+ */
+const especificacionSwagger = swaggerJsdoc(opciones);
 
-export { swaggerSpec, swaggerUi };
+export { especificacionSwagger, swaggerUi };
+// Exportar también con el nombre anterior para compatibilidad
+export { especificacionSwagger as swaggerSpec };
 

@@ -5,42 +5,50 @@ import { useEffect } from 'react';
 
 export default function Layout() {
   const { user, logout, userType, isAuthenticated, token } = useAuthStore();
-  const location = useLocation();
+  const ubicacion = useLocation();
 
   useEffect(() => {
     // Inicializar socket cuando el usuario está autenticado y hay token
+    // Usar un pequeño delay para evitar múltiples inicializaciones
+    let timeoutId;
+    
     if (isAuthenticated && token) {
-      const socket = initSocket();
-      if (socket) {
-        console.log('🔌 Socket inicializado desde Layout');
-      }
+      timeoutId = setTimeout(() => {
+        const socket = initSocket();
+        if (socket) {
+          console.log('🔌 Socket inicializado desde Layout');
+        }
+      }, 100); // Pequeño delay para evitar inicializaciones múltiples
     }
 
-    // Cleanup: desconectar al desmontar si no hay usuario
+    // Limpieza: desconectar al desmontar si no hay usuario
     return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (!isAuthenticated) {
         disconnectSocket();
       }
     };
   }, [isAuthenticated, token]);
 
-  const handleLogout = () => {
+  const manejarCerrarSesion = () => {
     // Desconectar socket antes de hacer logout
     disconnectSocket();
     logout();
-    window.location.href = '/login';
+    window.location.href = '/iniciar-sesion';
   };
 
-  const navigation = [
-    { name: 'Dashboard', path: '/', icon: '🏠' },
-    ...(userType === 'passenger'
-      ? [{ name: 'Solicitar Viaje', path: '/request-ride', icon: '🚗' }]
+  const navegacion = [
+    { nombre: 'Panel', ruta: '/', icono: '🏠' },
+    ...(userType === 'pasajero' || userType === 'passenger'
+      ? [{ nombre: 'Solicitar Viaje', ruta: '/solicitar-viaje', icono: '🚗' }]
       : []),
-    ...(userType === 'driver'
-      ? [{ name: 'Cola de Viajes', path: '/queue', icon: '📋' }]
+    ...(userType === 'conductor' || userType === 'driver'
+      ? [{ nombre: 'Cola de Viajes', ruta: '/cola-viajes', icono: '📋' }]
       : []),
-    ...(userType === 'admin'
-      ? [{ name: 'Métricas', path: '/metrics', icon: '📊' }]
+    ...(userType === 'administrador' || userType === 'admin'
+      ? [{ nombre: 'Métricas', ruta: '/metricas', icono: '📊' }]
       : []),
   ];
 
@@ -54,28 +62,28 @@ export default function Layout() {
                 <h1 className="text-xl font-bold text-blue-600">DiDi-Sicuani</h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {navigation.map((item) => (
+                {navegacion.map((item) => (
                   <Link
-                    key={item.path}
-                    to={item.path}
+                    key={item.ruta}
+                    to={item.ruta}
                     className={`${
-                      location.pathname === item.path
+                      ubicacion.pathname === item.ruta
                         ? 'border-blue-500 text-gray-900'
                         : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
                   >
-                    <span className="mr-2">{item.icon}</span>
-                    {item.name}
+                    <span className="mr-2">{item.icono}</span>
+                    {item.nombre}
                   </Link>
                 ))}
               </div>
             </div>
             <div className="flex items-center">
               <span className="text-sm text-gray-700 mr-4">
-                {user?.name || user?.email}
+                {user?.nombre || user?.name || user?.correo || user?.email}
               </span>
               <button
-                onClick={handleLogout}
+                onClick={manejarCerrarSesion}
                 className="text-sm text-red-600 hover:text-red-800"
               >
                 Cerrar Sesión

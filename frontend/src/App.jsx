@@ -11,34 +11,40 @@ import RideRequest from './pages/RideRequest';
 import RideQueue from './pages/RideQueue';
 import BiddingPage from './pages/BiddingPage';
 import Metrics from './pages/Metrics';
+import ActiveRide from './pages/ActiveRide';
+import DriverHistory from './pages/DriverHistory';
+import PassengerHistory from './pages/PassengerHistory';
 
-function PrivateRoute({ children }) {
+function RutaPrivada({ children }) {
   const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  return isAuthenticated ? children : <Navigate to="/iniciar-sesion" />;
 }
 
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/iniciar-sesion" element={<Login />} />
+      <Route path="/registro" element={<Register />} />
       
       <Route
         path="/"
         element={
-          <PrivateRoute>
+          <RutaPrivada>
             <Layout />
-          </PrivateRoute>
+          </RutaPrivada>
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="passenger" element={<PassengerDashboard />} />
-        <Route path="driver" element={<DriverDashboard />} />
-        <Route path="admin" element={<AdminDashboard />} />
-        <Route path="request-ride" element={<RideRequest />} />
-        <Route path="queue" element={<RideQueue />} />
-        <Route path="bidding/:rideId" element={<BiddingPage />} />
-        <Route path="metrics" element={<Metrics />} />
+        <Route path="pasajero" element={<PassengerDashboard />} />
+        <Route path="conductor" element={<DriverDashboard />} />
+        <Route path="administrador" element={<AdminDashboard />} />
+        <Route path="solicitar-viaje" element={<RideRequest />} />
+        <Route path="cola-viajes" element={<RideQueue />} />
+        <Route path="subasta/:rideId" element={<BiddingPage />} />
+        <Route path="metricas" element={<Metrics />} />
+        <Route path="viaje-activo" element={<ActiveRide />} />
+        <Route path="historial" element={<DriverHistory />} />
+        <Route path="historial-pasajero" element={<PassengerHistory />} />
       </Route>
     </Routes>
   );
