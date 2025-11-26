@@ -79,7 +79,7 @@ export default function RideQueue() {
           const rId = r._id || r.id || r.idSolicitudViaje || r.rideRequestId;
           return rId !== rideIdToRemove;
         }));
-        toast.info('Una solicitud fue asignada a otro conductor');
+        toast('Una solicitud fue asignada a otro conductor', { icon: 'ℹ️' });
         loadQueue();
       };
 
@@ -202,7 +202,7 @@ export default function RideQueue() {
 
   const handleReject = async (rideId) => {
     // Rechazar simplemente no hacer nada o remover de la vista
-    toast.info('Solicitud ignorada');
+    toast('Solicitud ignorada', { icon: 'ℹ️' });
     loadQueue();
   };
 

@@ -26,10 +26,36 @@ export default function DriverHistory() {
       if (filters.startDate) params.append('fechaInicio', filters.startDate);
       if (filters.endDate) params.append('fechaFin', filters.endDate);
 
-      const response = await api.get(`/conductores/historial?${params.toString()}`);
+      const response = await api.get(`/conductores/history?${params.toString()}`);
       // El backend retorna: { exito: true, datos: { viajes, estadisticas } }
       const datos = response.data.datos || response.data.data || {};
-      setRides(datos.viajes || datos.rides || []);
+      const viajesRaw = datos.viajes || datos.rides || [];
+      
+      // Normalizar IDs y filtrar duplicados usando Set
+      const idsVistos = new Set();
+      const viajesUnicos = viajesRaw.filter((ride) => {
+        // Normalizar ID: convertir a string si es objeto
+        const rideId = ride._id 
+          ? (typeof ride._id === 'string' ? ride._id : ride._id.toString())
+          : (ride.id ? (typeof ride.id === 'string' ? ride.id : ride.id.toString()) : null);
+        
+        if (!rideId) {
+          // Si no hay ID, generar uno temporal basado en otros campos
+          const tempId = `${ride.origen?.direccion || ride.origin?.address || ''}-${ride.destino?.direccion || ride.destination?.address || ''}-${ride.fecha_creacion || ride.createdAt || Date.now()}`;
+          if (idsVistos.has(tempId)) return false;
+          idsVistos.add(tempId);
+          return true;
+        }
+        
+        if (idsVistos.has(rideId)) {
+          return false; // Duplicado, filtrar
+        }
+        
+        idsVistos.add(rideId);
+        return true; // Único, incluir
+      });
+      
+      setRides(viajesUnicos);
       setStatistics(datos.estadisticas || datos.statistics || {});
     } catch (error) {
       console.error('Error loading history:', error);
@@ -50,7 +76,7 @@ export default function DriverHistory() {
     }
 
     try {
-      const response = await api.post('/conductores/historial/eliminar', {
+      const response = await api.post('/conductores/history/delete', {
         idsViajes: selectedRides,
         rideIds: selectedRides, // Compatibilidad
       });
@@ -72,7 +98,7 @@ export default function DriverHistory() {
     }
 
     try {
-      const response = await api.post('/conductores/historial/eliminar', {
+      const response = await api.post('/conductores/history/delete', {
         borrarTodo: true,
         deleteAll: true, // Compatibilidad
         borrarOfertas: true, // También borrar ofertas
@@ -84,6 +110,14 @@ export default function DriverHistory() {
     } catch (error) {
       toast.error(error.response?.data?.error || error.response?.data?.mensaje || 'Error al borrar historial');
     }
+  };
+
+  // Función para normalizar IDs de rides
+  const normalizarIdRide = (ride) => {
+    if (ride._id) return typeof ride._id === 'string' ? ride._id : ride._id.toString();
+    if (ride.id) return typeof ride.id === 'string' ? ride.id : ride.id.toString();
+    // Si no hay ID, generar uno temporal
+    return `${ride.origen?.direccion || ride.origin?.address || ''}-${ride.destino?.direccion || ride.destination?.address || ''}-${ride.fecha_creacion || ride.createdAt || Date.now()}`;
   };
 
   const toggleRideSelection = (rideId) => {
@@ -253,19 +287,24 @@ export default function DriverHistory() {
             <p className="text-gray-600">No hay viajes en el historial</p>
           </div>
         ) : (
-          rides.map((ride) => (
+          rides.map((ride, index) => {
+            // Normalizar ID para usar como key y en selección
+            const rideId = normalizarIdRide(ride);
+            const rideKey = rideId || `ride-${index}-${Date.now()}`;
+            
+            return (
             <div
-              key={ride.id}
+              key={rideKey}
               className={`bg-white p-6 rounded-lg shadow hover:shadow-lg transition ${
-                selectedRides.includes(ride.id) ? 'ring-2 ring-blue-500' : ''
+                selectedRides.includes(rideId) ? 'ring-2 ring-blue-500' : ''
               }`}
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-start gap-2 flex-1">
                   <input
                     type="checkbox"
-                    checked={selectedRides.includes(ride.id)}
-                    onChange={() => toggleRideSelection(ride.id)}
+                    checked={selectedRides.includes(rideId)}
+                    onChange={() => toggleRideSelection(rideId)}
                     className="mt-1"
                   />
                   <div className="flex-1">
@@ -305,7 +344,8 @@ export default function DriverHistory() {
                 </div>
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

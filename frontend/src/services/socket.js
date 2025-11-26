@@ -109,7 +109,16 @@ export const inicializarSocket = () => {
 
   // Evento: Error de conexión
   socket.on('connect_error', (error) => {
-    console.error('❌ Error de conexión del socket:', error.message);
+    // Filtrar errores normales durante el upgrade de transporte
+    const mensajeError = error.message || '';
+    const esErrorNormal = mensajeError.includes('websocket error') || 
+                         mensajeError.includes('transport close') ||
+                         mensajeError.includes('xhr poll error');
+    
+    // Solo mostrar errores que no sean parte del proceso normal de conexión
+    if (!esErrorNormal || intentosReconexion === 0) {
+      console.error('❌ Error de conexión del socket:', error.message);
+    }
     estaConectando = false;
   });
 

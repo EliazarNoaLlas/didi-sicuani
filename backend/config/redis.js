@@ -22,10 +22,18 @@ const conectarRedis = async () => {
   try {
     estaConectando = true;
     
+    // Soporte para URL de Redis (Redis Cloud) o host/port separados
+    const redisUrl = process.env.REDIS_URL;
+    const redisConfig = redisUrl 
+      ? { url: redisUrl }
+      : {
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+          password: process.env.REDIS_PASSWORD || undefined,
+        };
+    
     clienteRedis = createClient({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: process.env.REDIS_PORT || 6379,
-      password: process.env.REDIS_PASSWORD || undefined,
+      ...redisConfig,
       socket: {
         reconnectStrategy: (reintentos) => {
           if (reintentos > MAX_INTENTOS_RECONEXION) {
