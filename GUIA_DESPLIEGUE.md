@@ -63,6 +63,11 @@ Esta guía te ayudará a desplegar tu aplicación completa (Base de Datos, Backe
 ### Paso 1.6: Verificar Conexión
 
 1. Guarda el string de conexión, lo usarás en el backend
+2. ⚠️ **Importante**: Asegúrate de que el formato sea correcto:
+   ```
+   mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<database>?retryWrites=true&w=majority
+   ```
+3. El código del backend está optimizado para MongoDB Atlas y detectará automáticamente la conexión cloud
 
 ---
 
@@ -137,7 +142,18 @@ RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
 ```
 
-#### 3.1.2: Actualizar `server.js` para producción
+#### 3.1.2: Verificar configuración de MongoDB Atlas
+
+El código ya está optimizado para MongoDB Atlas. El archivo `backend/config/database.js` incluye:
+
+- ✅ Configuración automática para MongoDB Atlas (detecta `mongodb+srv://`)
+- ✅ Opciones de conexión optimizadas (timeouts, pool de conexiones, reintentos)
+- ✅ Manejo robusto de errores con mensajes descriptivos
+- ✅ Reconexión automática en caso de desconexión
+
+**No necesitas modificar el código**, solo asegúrate de que la variable `MONGODB_URI` esté correctamente configurada en las variables de entorno de Render.
+
+#### 3.1.3: Verificar `server.js` para producción
 
 Verifica que `server.js` use variables de entorno correctamente:
 
@@ -146,7 +162,7 @@ const PORT = process.env.PORT || 5000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
 ```
 
-#### 3.1.3: Crear archivo `render.yaml` (opcional)
+#### 3.1.4: Crear archivo `render.yaml` (opcional)
 
 Crea `render.yaml` en la raíz del proyecto:
 
@@ -341,8 +357,13 @@ const URL_SOCKET = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 ### Error: "Cannot connect to MongoDB"
 - Verifica que la IP de Render esté en la whitelist de MongoDB Atlas
-- Agrega `0.0.0.0/0` temporalmente para pruebas
-- Verifica que el string de conexión sea correcto
+- Agrega `0.0.0.0/0` temporalmente para pruebas (o la IP específica de Render)
+- Verifica que el string de conexión sea correcto:
+  - Formato: `mongodb+srv://usuario:password@cluster.mongodb.net/didi-sicuani?retryWrites=true&w=majority`
+  - Reemplaza `<username>` y `<password>` con tus credenciales reales
+  - Asegúrate de que no haya espacios en la URI
+- Verifica que el usuario de MongoDB tenga permisos de lectura/escritura
+- Revisa los logs del backend en Render para ver el error específico
 
 ### Error: "Redis connection failed"
 - Verifica que el endpoint y la contraseña sean correctos

@@ -24,13 +24,31 @@ const conectarRedis = async () => {
     
     // Soporte para URL de Redis (Redis Cloud) o host/port separados
     const redisUrl = process.env.REDIS_URL;
-    const redisConfig = redisUrl 
-      ? { url: redisUrl }
-      : {
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6379'),
-          password: process.env.REDIS_PASSWORD || undefined,
+    let redisConfig;
+    
+    if (redisUrl) {
+      // Usar URL completa (recomendado para Redis Cloud)
+      redisConfig = { url: redisUrl };
+    } else {
+      // Construir URL si tenemos host, port y password (para Redis Cloud)
+      const host = process.env.REDIS_HOST || 'localhost';
+      const port = parseInt(process.env.REDIS_PORT || '6379');
+      const password = process.env.REDIS_PASSWORD;
+      
+      // Si hay password y no es localhost, construir URL (Redis Cloud)
+      if (password && host !== 'localhost' && host !== '127.0.0.1') {
+        redisConfig = { 
+          url: `redis://default:${password}@${host}:${port}` 
         };
+      } else {
+        // Configuración local sin password o con password local
+        redisConfig = {
+          host: host,
+          port: port,
+          ...(password && { password: password }),
+        };
+      }
+    }
     
     clienteRedis = createClient({
       ...redisConfig,

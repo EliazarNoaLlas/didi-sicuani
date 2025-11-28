@@ -1,0 +1,15 @@
+# ============================================
+# .htaccess para Backend en cPanel
+# ============================================
+# Este archivo redirige las peticiones al servidor Node.js
+# que corre en el puerto 10000 (o el que configures en cPanel)
+
+RewriteEngine On
+
+# Redirigir todas las peticiones al servidor Node.js
+# Ajusta el puerto según el que uses en cPanel (generalmente 10000)
+RewriteRule ^(.*)$ http://localhost:10000/$1 [P,L]
+
+# Nota: El módulo mod_proxy debe estar habilitado en Apache
+# Si no funciona, contacta a tu proveedor de hosting
+

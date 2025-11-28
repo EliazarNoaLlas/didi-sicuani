@@ -63,12 +63,27 @@ const testConnection = async () => {
     console.error('❌ Error:', error.message);
     console.error('');
     console.error('💡 Verifica:');
-    console.error('  1. MongoDB está corriendo');
-    console.error('  2. La URI en .env es correcta');
-    console.error('  3. Las credenciales son correctas (si aplica)');
-    console.error('');
-    console.error('🔧 Para iniciar MongoDB en Windows:');
-    console.error('   Start-Service -Name MongoDB');
+    
+    // Detectar tipo de conexión
+    const esAtlas = process.env.MONGODB_URI && process.env.MONGODB_URI.includes('mongodb+srv://');
+    
+    if (esAtlas) {
+      console.error('  1. La URI de MongoDB Atlas es correcta');
+      console.error('  2. El usuario y contraseña son correctos');
+      console.error('  3. La IP de tu servidor está en la whitelist de MongoDB Atlas');
+      console.error('  4. El cluster está activo en MongoDB Atlas');
+      console.error('');
+      console.error('🔧 Para MongoDB Atlas:');
+      console.error('  - Ve a MongoDB Atlas → Network Access → Add IP Address');
+      console.error('  - Para desarrollo: Agrega 0.0.0.0/0 (Allow Access from Anywhere)');
+    } else {
+      console.error('  1. MongoDB está corriendo');
+      console.error('  2. La URI en .env es correcta');
+      console.error('  3. Las credenciales son correctas (si aplica)');
+      console.error('');
+      console.error('🔧 Para iniciar MongoDB en Windows:');
+      console.error('   Start-Service -Name MongoDB');
+    }
     console.error('');
     process.exit(1);
   }
