@@ -221,16 +221,17 @@ services:
    - **Build Command**: `cd backend && npm install`
    - **Start Command**: `cd backend && npm start`
    - **Plan**: **Free**
-6. En **"Environment Variables"**, agrega todas las variables de tu `.env.production`:
-   - `MONGODB_URI`
-   - `REDIS_HOST`
-   - `REDIS_PORT`
-   - `REDIS_PASSWORD`
-   - `JWT_SECRET`
-   - `NODE_ENV=production`
-   - `PORT=5000`
-   - `CORS_ORIGIN` (lo actualizarás después con la URL del frontend)
-   - `SOCKET_CORS_ORIGIN` (lo actualizarás después con la URL del frontend)
+6. En **"Environment Variables"**, agrega todas las variables (haz clic en "Add Environment Variable" para cada una):
+   - `MONGODB_URI` = `mongodb+srv://didi-sicuani:159753@cluster0.xywi7ah.mongodb.net/didi-sicuani?retryWrites=true&w=majority`
+   - `REDIS_URL` = `redis://default:ier0LZhCpHZ7kiYbMuiM9AiXAOA4bFew@redis-18779.crce216.sa-east-1-2.ec2.cloud.redislabs.com:18779`
+   - `JWT_SECRET` = (genera una clave segura de al menos 32 caracteres)
+   - `JWT_EXPIRES_IN` = `7d`
+   - `NODE_ENV` = `production`
+   - `PORT` = `5000`
+   - `CORS_ORIGIN` = `https://tu-frontend.vercel.app` (lo actualizarás después con la URL real del frontend)
+   - `SOCKET_CORS_ORIGIN` = `https://tu-frontend.vercel.app` (lo actualizarás después con la URL real del frontend)
+   - `RATE_LIMIT_WINDOW_MS` = `900000`
+   - `RATE_LIMIT_MAX_REQUESTS` = `100`
 7. Haz clic en **"Create Web Service"**
 8. Render comenzará a construir y desplegar tu backend (puede tardar 5-10 minutos)
 

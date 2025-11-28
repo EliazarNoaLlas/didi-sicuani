@@ -317,7 +317,46 @@ Para facilitar la subida, puedes comprimir:
 
 ### 5.3 Subir Archivos del Backend
 
-**Opción A: Usando File Manager (Recomendado para principiantes)**
+**Opción A: Usando Git (RECOMENDADO - Más eficiente y profesional)**
+
+1. En cPanel, busca **Git™ Version Control** (en la sección Tools)
+2. Haz clic en **Create Repository**
+3. Configura el repositorio:
+   - **Clone a Repository**: Activa el toggle (debe estar en azul/activado)
+   - **Clone URL**: Ingresa la URL de tu repositorio de GitHub
+     ```
+     https://github.com/EliazarNoaLlas/didi-sicuani
+     ```
+   - **Repository Path**: Cambia la ruta para que apunte al subdominio del backend
+     ```
+     /home/vilca/api.vilcanotadsi.top
+     ```
+     O si tu hosting usa public_html:
+     ```
+     /home/vilca/public_html/api.vilcanotadsi.top
+     ```
+   - **Repository Name**: `didi-sicuani-backend` (o el nombre que prefieras)
+4. Haz clic en **Crear** (Create)
+5. Espera a que se clone el repositorio (puede tardar unos minutos)
+6. **Importante**: Una vez clonado, necesitarás copiar solo la carpeta `backend` al directorio raíz del subdominio
+
+**Después de clonar - Copiar carpeta backend:**
+
+1. En cPanel, ve a **File Manager**
+2. Navega a la carpeta donde se clonó el repositorio (ej: `/home/vilca/api.vilcanotadsi.top`)
+3. Verás todas las carpetas del proyecto (backend, frontend, mobile, etc.)
+4. **Opción 1 - Mover archivos del backend:**
+   - Entra a la carpeta `backend`
+   - Selecciona todos los archivos (Ctrl+A o Cmd+A)
+   - Córtalos (Cut) y muévelos al directorio raíz del subdominio
+5. **Opción 2 - Usar SSH (más rápido):**
+   ```bash
+   cd /home/vilca/api.vilcanotadsi.top
+   cp -r backend/* .
+   rm -rf backend frontend mobile scripts
+   ```
+
+**Opción B: Usando File Manager (Alternativa manual)**
 
 1. En cPanel, busca **File Manager**
 2. Navega a la carpeta del subdominio creado (ej: `api.tudominio.com`)
@@ -325,18 +364,12 @@ Para facilitar la subida, puedes comprimir:
 4. Sube todos los archivos del backend (o el archivo comprimido y extráelo)
 5. **Importante**: No subas `node_modules`, se instalarán después
 
-**Opción B: Usando FTP**
+**Opción C: Usando FTP**
 
 1. Usa un cliente FTP (FileZilla, WinSCP, etc.)
 2. Conecta con tus credenciales FTP
 3. Navega a la carpeta del subdominio
 4. Sube todos los archivos del backend
-
-**Opción C: Usando Git (Si tu hosting lo permite)**
-
-1. En cPanel, busca **Git Version Control**
-2. Crea un nuevo repositorio
-3. Clona tu repositorio en la carpeta del subdominio
 
 ### 5.4 Instalar Node.js y Configurar la Aplicación
 
