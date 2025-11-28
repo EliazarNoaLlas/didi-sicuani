@@ -4,6 +4,72 @@ import { iniciarSesion, registrar } from '../controllers/controlador-autenticaci
 
 const enrutador = express.Router();
 
+/**
+ * @swagger
+ * /api/autenticacion:
+ *   get:
+ *     summary: Información sobre los endpoints de autenticación
+ *     tags: [Autenticación]
+ *     responses:
+ *       200:
+ *         description: Lista de endpoints disponibles
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 exito:
+ *                   type: boolean
+ *                   example: true
+ *                 mensaje:
+ *                   type: string
+ *                   example: Endpoints de autenticación disponibles
+ *                 endpoints:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       metodo:
+ *                         type: string
+ *                         example: POST
+ *                       ruta:
+ *                         type: string
+ *                         example: /api/autenticacion/login
+ *                       descripcion:
+ *                         type: string
+ *                         example: Iniciar sesión
+ */
+enrutador.get('/', (req, res) => {
+  res.json({
+    exito: true,
+    mensaje: 'Endpoints de autenticación disponibles',
+    endpoints: [
+      {
+        metodo: 'POST',
+        ruta: '/api/autenticacion/login',
+        descripcion: 'Iniciar sesión',
+        body: {
+          correo: 'string (email requerido)',
+          contrasena: 'string (requerido)'
+        }
+      },
+      {
+        metodo: 'POST',
+        ruta: '/api/autenticacion/register',
+        descripcion: 'Registrar nuevo usuario',
+        body: {
+          correo: 'string (email requerido)',
+          contrasena: 'string (mínimo 6 caracteres, requerido)',
+          nombre: 'string (requerido)',
+          tipoUsuario: 'string (pasajero | conductor, requerido)',
+          telefono: 'string (opcional)'
+        }
+      }
+    ],
+    documentacion: '/api-docs'
+  });
+});
+
 // Middleware para manejar errores de validación
 const manejarErroresValidacion = (req, res, next) => {
   const errores = validationResult(req);
