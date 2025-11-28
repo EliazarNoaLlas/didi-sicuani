@@ -316,28 +316,52 @@ enrutador.get(
         });
       }
 
+      // Verificar si el usuario es el pasajero del viaje
+      const esPasajero = req.user.id.toString() === solicitudViaje.id_pasajero.toString();
+      const tipoUsuario = req.user.tipoUsuario || req.user.userType;
+      const esConductor = tipoUsuario === 'conductor' || tipoUsuario === 'driver';
+      
+      // Verificar si la ronda ha finalizado
+      const ahora = new Date();
+      const fechaExpiracion = solicitudViaje.fecha_expiracion;
+      const rondaFinalizada = fechaExpiracion ? ahora >= new Date(fechaExpiracion) : false;
+      
       // Obtener ofertas asociadas
-      const ofertas = await Oferta.find({ id_solicitud_viaje: idViaje })
-        .populate('id_conductor', 'nombre informacion_conductor')
-        .sort({ createdAt: -1 });
+      let ofertas = [];
+      
+      // Solo mostrar ofertas si:
+      // 1. Es conductor (puede ver su propia oferta)
+      // 2. Es pasajero Y la ronda ha finalizado
+      if (esConductor || (esPasajero && rondaFinalizada)) {
+        ofertas = await Oferta.find({ id_solicitud_viaje: idViaje })
+          .populate('id_conductor', 'nombre informacion_conductor')
+          .sort({ precio_ofrecido: 1 }); // Ordenar por precio ascendente
+      }
 
       res.json({
         exito: true,
         datos: {
           viaje: solicitudViaje,
+          rondaFinalizada: rondaFinalizada,
           ofertas: ofertas.map((oferta) => ({
+            _id: oferta._id,
             id: oferta._id,
-            id_conductor: oferta.id_conductor._id,
-            nombre_conductor: oferta.id_conductor.nombre,
-            tipo_vehiculo: oferta.id_conductor.informacion_conductor?.tipo_vehiculo,
+            id_conductor: oferta.id_conductor?._id,
+            nombre_conductor: oferta.id_conductor?.nombre,
+            tipo_vehiculo: oferta.id_conductor?.informacion_conductor?.tipo_vehiculo,
             calificacion: oferta.calificacion_conductor,
-            total_viajes: oferta.id_conductor.informacion_conductor?.total_viajes || 0,
+            calificacion_conductor: oferta.calificacion_conductor,
+            total_viajes: oferta.id_conductor?.informacion_conductor?.total_viajes || 0,
             tipo_oferta: oferta.tipo_oferta,
             precio_ofrecido: oferta.precio_ofrecido,
+            precio_inicial: oferta.precio_inicial,
+            contraofertas: oferta.contraofertas || [],
+            numero_contraofertas: oferta.numero_contraofertas || 0,
             tiempo_estimado_llegada_min: oferta.tiempo_estimado_llegada_min,
             distancia_conductor_km: oferta.distancia_conductor_km,
             estado: oferta.estado,
             fecha_creacion: oferta.createdAt,
+            createdAt: oferta.createdAt,
           })),
         },
       });
@@ -475,13 +499,18 @@ enrutador.post(
         });
       }
 
-      const oferta = await servicioSubasta.enviarOferta(
+      const resultado = await servicioSubasta.enviarOferta(
         idConductor,
         idSolicitudViaje,
         precioOfrecido
       );
 
-      res.json({ exito: true, datos: oferta });
+      // El servicio ahora retorna { oferta, competencia }
+      res.json({ 
+        exito: true, 
+        datos: resultado.oferta || resultado,
+        competencia: resultado.competencia 
+      });
     } catch (error) {
       res.status(400).json({ success: false, error: error.message });
     }

@@ -12,17 +12,57 @@ export default function BiddingPage() {
   const [ride, setRide] = useState(null);
   const [showAcceptedAnimation, setShowAcceptedAnimation] = useState(false);
   const [acceptedDriverInfo, setAcceptedDriverInfo] = useState(null);
+  const [rondaFinalizada, setRondaFinalizada] = useState(false);
+  const [tiempoRestante, setTiempoRestante] = useState(0);
+
+  // Verificar si la ronda ha finalizado
+  useEffect(() => {
+    if (!ride) return;
+    
+    const verificarRonda = () => {
+      const fechaExpiracion = ride.fecha_expiracion || ride.expires_at || ride.fechaExpiracion;
+      if (!fechaExpiracion) {
+        setRondaFinalizada(false);
+        return;
+      }
+
+      const ahora = new Date();
+      const expiracion = new Date(fechaExpiracion);
+      const segundosRestantes = Math.max(0, Math.floor((expiracion - ahora) / 1000));
+      
+      setTiempoRestante(segundosRestantes);
+      const finalizada = ahora >= expiracion;
+      setRondaFinalizada(finalizada);
+      
+      // Si la ronda acaba de finalizar, cargar ofertas
+      if (finalizada && bids.length === 0) {
+        loadBids();
+      }
+    };
+
+    verificarRonda();
+    const interval = setInterval(verificarRonda, 1000);
+
+    return () => clearInterval(interval);
+  }, [ride]);
 
   useEffect(() => {
     loadRide();
-    loadBids();
 
     const socket = getSocket();
     
     // Solo agregar listener si el socket está conectado
     if (socket && socket.connected) {
       const handleBidReceived = (bid) => {
-        // Normalizar el bid para asegurar que tenga el campo 'id'
+        // Durante la ronda activa, NO mostrar ofertas al pasajero
+        // Solo notificar que se recibió una oferta (sin mostrar detalles)
+        if (!rondaFinalizada) {
+          // No agregar a la lista durante la ronda activa
+          // Solo mostrar notificación genérica
+          return;
+        }
+        
+        // Solo después de que termine la ronda, mostrar las ofertas
         const normalizedBid = {
           ...bid,
           id: bid._id || bid.id,
@@ -30,20 +70,10 @@ export default function BiddingPage() {
         };
 
         setBids((prev) => {
-          // Evitar duplicados
           const exists = prev.some(b => (b._id || b.id) === normalizedBid.id);
           if (exists) return prev;
           return [normalizedBid, ...prev];
         });
-        
-        if (bid.bid_type === 'accept') {
-          toast.success('🎉 ¡Conductor aceptó tu solicitud!', {
-            duration: 5000,
-            icon: '✅',
-          });
-        } else {
-          toast.success('Nueva oferta recibida');
-        }
       };
 
       const handleRideAccepted = (data) => {
@@ -81,6 +111,16 @@ export default function BiddingPage() {
       socket.on('bid:received', handleBidReceived); // Compatibilidad
       socket.on('viaje:aceptado', handleRideAccepted);
       socket.on('ride:accepted', handleRideAccepted); // Compatibilidad
+      
+      // Escuchar cuando la ronda finaliza
+      const handleRondaFinalizada = (data) => {
+        if (data.idSolicitudViaje === rideId || data.idSolicitudViaje === ride?._id || data.idSolicitudViaje === ride?.id) {
+          setRondaFinalizada(true);
+          loadBids();
+          toast.success('La ronda de ofertas ha finalizado. Aquí están las ofertas recibidas.');
+        }
+      };
+      socket.on('ronda:finalizada', handleRondaFinalizada);
 
       // Cleanup: remover listener al desmontar
       return () => {
@@ -89,6 +129,7 @@ export default function BiddingPage() {
           socket.off('bid:received', handleBidReceived);
           socket.off('viaje:aceptado', handleRideAccepted);
           socket.off('ride:accepted', handleRideAccepted);
+          socket.off('ronda:finalizada', handleRondaFinalizada);
         }
       };
     } else {
@@ -149,13 +190,29 @@ export default function BiddingPage() {
     try {
       const response = await api.get(`/viajes/${rideId}`);
       
-      // El backend retorna: { exito: true, datos: { viaje, ofertas } }
+      // El backend retorna: { exito: true, datos: { viaje, ofertas, rondaFinalizada } }
       const datos = response.data.datos || response.data.data || {};
       const viaje = datos.viaje || datos.ride || datos;
-      const ofertas = datos.ofertas || datos.bids || [];
       
       setRide(viaje);
-      setBids(ofertas);
+      
+      // Usar el estado del backend si está disponible
+      if (datos.rondaFinalizada !== undefined) {
+        setRondaFinalizada(datos.rondaFinalizada);
+      }
+      
+      // Si la ronda ha finalizado, cargar ofertas
+      if (datos.rondaFinalizada && datos.ofertas) {
+        const ofertas = datos.ofertas || [];
+        const ofertasOrdenadas = [...ofertas].sort((a, b) => {
+          const precioA = a.precio_ofrecido || a.offered_price || a.precioOfrecido || 0;
+          const precioB = b.precio_ofrecido || b.offered_price || b.precioOfrecido || 0;
+          return precioA - precioB;
+        });
+        setBids(ofertasOrdenadas);
+      } else {
+        setBids([]); // Limpiar ofertas durante la ronda activa
+      }
     } catch (error) {
       console.error('Error loading ride:', error);
       const mensajeError = error.response?.data?.error || 
@@ -168,6 +225,12 @@ export default function BiddingPage() {
   };
 
   const loadBids = async () => {
+    // Solo cargar ofertas si la ronda ha finalizado
+    if (!rondaFinalizada) {
+      setBids([]); // Limpiar ofertas durante la ronda activa
+      return;
+    }
+    
     try {
       const response = await api.get(`/viajes/${rideId}`);
       
@@ -175,12 +238,26 @@ export default function BiddingPage() {
       const datos = response.data.datos || response.data.data || {};
       const ofertas = datos.ofertas || datos.bids || [];
       
-      setBids(ofertas);
+      // Ordenar ofertas por precio (ascendente - menor precio primero)
+      const ofertasOrdenadas = [...ofertas].sort((a, b) => {
+        const precioA = a.precio_ofrecido || a.offered_price || a.precioOfrecido || 0;
+        const precioB = b.precio_ofrecido || b.offered_price || b.precioOfrecido || 0;
+        return precioA - precioB;
+      });
+      
+      setBids(ofertasOrdenadas);
     } catch (error) {
       console.error('Error loading bids:', error);
       // No mostrar toast para este error, solo loguear
     }
   };
+
+  // Cargar ofertas cuando la ronda finaliza
+  useEffect(() => {
+    if (rondaFinalizada) {
+      loadBids();
+    }
+  }, [rondaFinalizada]);
 
   const handleAcceptBid = async (bidId) => {
     if (!bidId) {
@@ -266,21 +343,59 @@ export default function BiddingPage() {
               </p>
             </div>
           </div>
-          {(ride.fecha_expiracion || ride.expires_at || ride.fechaExpiracion) && (
-            <p className="text-sm text-gray-500 mt-2">
-              ⏰ Tiempo restante: {Math.max(0, Math.floor((new Date(ride.fecha_expiracion || ride.expires_at || ride.fechaExpiracion) - new Date()) / 1000 / 60))} minutos
-            </p>
+          {rondaFinalizada ? (
+            <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm font-semibold text-green-800">
+                ✅ Ronda de ofertas finalizada
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                Puedes ver y seleccionar las ofertas de los conductores
+              </p>
+            </div>
+          ) : (
+            <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm font-semibold text-yellow-800">
+                ⏰ Ronda de ofertas en curso
+              </p>
+              <p className="text-xs text-yellow-600 mt-1">
+                Tiempo restante: {Math.floor(tiempoRestante / 60)}:{(tiempoRestante % 60).toString().padStart(2, '0')}
+              </p>
+              <p className="text-xs text-yellow-600 mt-1">
+                Las ofertas se mostrarán cuando termine la ronda
+              </p>
+            </div>
           )}
         </div>
       )}
 
-      <div className="space-y-4">
-        {bids.length === 0 ? (
-          <div className="bg-white p-6 rounded-lg shadow text-center">
-            <p className="text-gray-600">Esperando ofertas de conductores...</p>
-          </div>
-        ) : (
-          bids.map((bid) => {
+      {rondaFinalizada ? (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {bids.length === 0 ? (
+            <div className="p-6 text-center">
+              <p className="text-gray-600">No se recibieron ofertas de conductores</p>
+            </div>
+          ) : (
+            <>
+              <div className="bg-gradient-to-r from-green-600 to-teal-600 text-white p-4">
+                <h2 className="text-xl font-bold">Ofertas Recibidas ({bids.length})</h2>
+                <p className="text-sm mt-1">Ordenadas por precio (menor a mayor)</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conductor</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Calificación</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehículo</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contraofertas</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {bids.map((bid, index) => {
             const bidId = bid.id || bid._id;
             if (!bidId) {
               console.warn('Bid sin ID:', bid);
@@ -295,73 +410,121 @@ export default function BiddingPage() {
             const distanciaKm = bid.distancia_conductor_km || bid.driver_distance_km || bid.distanciaKm || 0;
             const tipoVehiculo = bid.tipo_vehiculo || bid.vehicle_type || bid.tipoVehiculo || '';
             const totalViajes = bid.total_viajes || bid.total_trips || bid.totalViajes || 0;
-            const fechaCreacion = bid.fecha_creacion || bid.created_at || bid.createdAt || new Date();
-            const estado = bid.estado || bid.status || 'pending';
-            
-            return (
-            <div key={bidId} className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold text-lg">{nombreConductor}</h3>
-                    <span className="text-yellow-500">⭐ {typeof calificacion === 'number' ? calificacion.toFixed(1) : calificacion}</span>
-                  </div>
-                  <p className="text-blue-600 font-bold text-xl mt-2">
-                    Oferta: S/ {typeof precioOferta === 'number' ? precioOferta.toFixed(2) : precioOferta || 'N/A'}
-                  </p>
-                  <div className="grid grid-cols-2 gap-4 mt-3 text-sm text-gray-600">
-                    <div>
-                      <p>ETA: {etaMin} min</p>
-                      <p>Distancia: {typeof distanciaKm === 'number' ? distanciaKm.toFixed(2) : distanciaKm || 'N/A'} km</p>
-                    </div>
-                    <div>
-                      <p>Vehículo: {
-                        tipoVehiculo === 'taxi' ? '🚕 Taxi' : 
-                        tipoVehiculo === 'mototaxi' ? '🏍️ Mototaxi' : 
-                        tipoVehiculo === 'cualquiera' ? '🚗 Cualquiera' :
-                        tipoVehiculo || '🚗'
-                      }</p>
-                      <p>Viajes: {totalViajes}</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-2">
-                    {new Date(fechaCreacion).toLocaleString()}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 ml-4">
-                  {(estado === 'pending' || estado === 'pendiente') && (
-                    <>
-                      <button
-                        onClick={() => handleAcceptBid(bidId)}
-                        className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 font-medium"
-                      >
-                        ✅ Aceptar
-                      </button>
-                      <button
-                        onClick={() => handleRejectBid(bidId)}
-                        className="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 font-medium"
-                      >
-                        ❌ Rechazar
-                      </button>
-                    </>
-                  )}
-                  {(estado === 'accepted' || estado === 'aceptada') && (
-                    <span className="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-medium text-center">
-                      ✅ Aceptada
-                    </span>
-                  )}
-                  {(estado === 'rejected' || estado === 'rechazada') && (
-                    <span className="bg-red-100 text-red-800 px-4 py-2 rounded-lg font-medium text-center">
-                      ❌ Rechazada
-                    </span>
-                  )}
-                </div>
+                      const fechaCreacion = bid.fecha_creacion || bid.created_at || bid.createdAt || new Date();
+                      const estado = bid.estado || bid.status || 'pending';
+                      const numeroContraofertas = bid.contraofertas?.length || bid.numero_contraofertas || 0;
+                      
+                      return (
+                        <tr key={bidId} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {index + 1}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{nombreConductor}</div>
+                            <div className="text-sm text-gray-500">Viajes: {totalViajes}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <span className="text-yellow-500">⭐</span>
+                              <span className="ml-1 text-sm font-medium text-gray-900">
+                                {typeof calificacion === 'number' ? calificacion.toFixed(1) : calificacion}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-bold text-green-600">
+                              S/ {typeof precioOferta === 'number' ? precioOferta.toFixed(2) : precioOferta || 'N/A'}
+                            </div>
+                            {bid.precio_inicial && bid.precio_inicial !== precioOferta && (
+                              <div className="text-xs text-gray-400 line-through">
+                                S/ {bid.precio_inicial.toFixed(2)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {tipoVehiculo === 'taxi' ? '🚕 Taxi' : 
+                             tipoVehiculo === 'mototaxi' ? '🏍️ Mototaxi' : 
+                             tipoVehiculo === 'cualquiera' ? '🚗 Cualquiera' :
+                             tipoVehiculo || '🚗'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {typeof distanciaKm === 'number' ? distanciaKm.toFixed(2) : distanciaKm || 'N/A'} km
+                            {etaMin !== 'N/A' && (
+                              <div className="text-xs text-gray-400">ETA: {etaMin} min</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {numeroContraofertas > 0 ? (
+                              <div className="text-sm">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {numeroContraofertas} {numeroContraofertas === 1 ? 'vez' : 'veces'}
+                                </span>
+                                {bid.contraofertas && bid.contraofertas.length > 0 && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {bid.contraofertas.map((c, idx) => (
+                                      <span key={idx}>
+                                        S/ {c.monto?.toFixed(2) || c.toFixed(2)}
+                                        {idx < bid.contraofertas.length - 1 ? ' → ' : ''}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {(estado === 'pending' || estado === 'pendiente') ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleAcceptBid(bidId)}
+                                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 font-medium text-sm"
+                                >
+                                  ✅ Aceptar
+                                </button>
+                                <button
+                                  onClick={() => handleRejectBid(bidId)}
+                                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 font-medium text-sm"
+                                >
+                                  ❌
+                                </button>
+                              </div>
+                            ) : estado === 'accepted' || estado === 'aceptada' ? (
+                              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium">
+                                ✅ Aceptada
+                              </span>
+                            ) : (
+                              <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-medium">
+                                ❌ Rechazada
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }).filter(Boolean)}
+                  </tbody>
+                </table>
               </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white p-12 rounded-lg shadow text-center">
+          <div className="max-w-md mx-auto">
+            <div className="text-6xl mb-4">⏳</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Ronda de Ofertas en Curso</h2>
+            <p className="text-gray-600 mb-4">
+              Los conductores están realizando sus ofertas. Las ofertas se mostrarán cuando termine la ronda.
+            </p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm font-semibold text-yellow-800">
+                Tiempo restante: {Math.floor(tiempoRestante / 60)}:{(tiempoRestante % 60).toString().padStart(2, '0')}
+              </p>
             </div>
-            );
-          }).filter(Boolean)
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

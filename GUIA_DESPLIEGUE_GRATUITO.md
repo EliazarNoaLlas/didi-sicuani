@@ -1,57 +1,72 @@
-# 🚀 Guía Completa de Despliegue Gratuito - DiDi-Sicuani
+# 🚀 Guía Completa de Despliegue con cPanel - DiDi-Sicuani
 
-Esta guía te mostrará cómo desplegar completamente la aplicación DiDi-Sicuani de forma **100% gratuita** usando servicios en la nube con planes gratuitos.
+Esta guía te mostrará cómo desplegar completamente la aplicación DiDi-Sicuani usando **cPanel** como servicio de hosting y dominio.
 
 ---
 
 ## 📋 Índice
 
-1. [Resumen de Servicios Gratuitos](#1-resumen-de-servicios-gratuitos)
-2. [Paso 1: Configurar MongoDB Atlas (Gratis)](#2-paso-1-configurar-mongodb-atlas-gratis)
-3. [Paso 2: Configurar Redis (Opcional - Gratis)](#3-paso-2-configurar-redis-opcional---gratis)
-4. [Paso 3: Desplegar Backend (Gratis)](#4-paso-3-desplegar-backend-gratis)
-5. [Paso 4: Desplegar Frontend (Gratis)](#5-paso-4-desplegar-frontend-gratis)
-6. [Paso 5: Configurar Variables de Entorno](#6-paso-5-configurar-variables-de-entorno)
-7. [Paso 6: Verificar Despliegue](#7-paso-6-verificar-despliegue)
-8. [Troubleshooting](#8-troubleshooting)
-9. [Alternativas Gratuitas](#9-alternativas-gratuitas)
+1. [Requisitos Previos y Resumen](#1-requisitos-previos-y-resumen)
+2. [Paso 1: Configurar MongoDB Atlas](#2-paso-1-configurar-mongodb-atlas)
+3. [Paso 2: Configurar Redis (Opcional)](#3-paso-2-configurar-redis-opcional)
+4. [Paso 3: Preparar el Proyecto para cPanel](#4-paso-3-preparar-el-proyecto-para-cpanel)
+5. [Paso 4: Desplegar Backend en cPanel](#5-paso-4-desplegar-backend-en-cpanel)
+6. [Paso 5: Desplegar Frontend en cPanel](#6-paso-5-desplegar-frontend-en-cpanel)
+7. [Paso 6: Configurar Dominio y Subdominios](#7-paso-6-configurar-dominio-y-subdominios)
+8. [Paso 7: Configurar Variables de Entorno](#8-paso-7-configurar-variables-de-entorno)
+9. [Paso 8: Verificar Despliegue](#9-paso-8-verificar-despliegue)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
-## 1. Resumen de Servicios Gratuitos
+## 1. Requisitos Previos y Resumen
 
-### Stack de Despliegue Recomendado (100% Gratis)
+### Stack de Despliegue con cPanel
 
-| Componente | Servicio | Plan Gratuito | Límites |
-|------------|----------|---------------|---------|
-| **MongoDB** | MongoDB Atlas | Free Tier (M0) | 512 MB, Shared Cluster |
-| **Backend** | Render / Railway | Free Tier | 750 horas/mes, Sleep después de inactividad |
-| **Frontend** | Vercel / Netlify | Free Tier | Ilimitado, CDN global |
-| **Redis** | Upstash | Free Tier | 10,000 comandos/día |
+| Componente | Servicio | Descripción |
+|------------|----------|-------------|
+| **Hosting** | cPanel Hosting | Hosting compartido o VPS con cPanel |
+| **Dominio** | Tu dominio | Dominio propio o subdominio del hosting |
+| **MongoDB** | MongoDB Atlas | Base de datos en la nube (gratis o pago) |
+| **Backend** | cPanel Node.js | Aplicación Node.js en cPanel |
+| **Frontend** | cPanel File Manager | Archivos estáticos en public_html |
+| **Redis** | Upstash (Opcional) | Cache en la nube |
 
-### Alternativas por Componente
+### Requisitos Previos
 
-**Backend:**
-- ✅ **Render** (Recomendado) - 750h/mes gratis, fácil setup
-- ✅ **Railway** - $5 crédito gratis/mes, más flexible
-- ✅ **Fly.io** - 3 VMs gratis, más técnico
-- ✅ **Cyclic** - Gratis, especializado en Node.js
+Antes de comenzar, necesitas:
 
-**Frontend:**
-- ✅ **Vercel** (Recomendado) - Ilimitado, excelente para React
-- ✅ **Netlify** - Ilimitado, muy fácil
-- ✅ **Cloudflare Pages** - Ilimitado, muy rápido
+1. ✅ **Cuenta de hosting con cPanel**
+   - Hosting compartido con cPanel o VPS con cPanel instalado
+   - Acceso FTP o SSH
+   - Node.js Selector habilitado (para el backend)
 
-**MongoDB:**
-- ✅ **MongoDB Atlas** - 512 MB gratis, suficiente para desarrollo/pequeña producción
+2. ✅ **Dominio configurado**
+   - Dominio apuntando a tu hosting
+   - O subdominio del hosting (ej: `tudominio.com` o `subdominio.tudominio.com`)
 
-**Redis (Opcional):**
-- ✅ **Upstash** - 10K comandos/día gratis
-- ✅ **Redis Cloud** - 30 MB gratis
+3. ✅ **Credenciales de acceso**
+   - Usuario y contraseña de cPanel
+   - Usuario y contraseña de FTP (si aplica)
+   - Acceso SSH (opcional pero recomendado)
+
+### Estructura de Despliegue Recomendada
+
+```
+tu-dominio.com/              → Frontend (public_html)
+api.tu-dominio.com/          → Backend (subdominio con Node.js)
+```
+
+O usando subdirectorios:
+
+```
+tu-dominio.com/              → Frontend (public_html)
+tu-dominio.com/api/          → Backend (subdirectorio con Node.js)
+```
 
 ---
 
-## 2. Paso 1: Configurar MongoDB Atlas (Gratis)
+## 2. Paso 1: Configurar MongoDB Atlas
 
 ### 2.1 Crear Cuenta en MongoDB Atlas
 
@@ -91,9 +106,47 @@ Esta guía te mostrará cómo desplegar completamente la aplicación DiDi-Sicuan
 1. En el menú lateral, ve a **Network Access**
 2. Haz clic en **Add IP Address**
 3. Para desarrollo, puedes usar:
-   - **Add Current IP Address** (tu IP actual)
+   - **Add Current IP Address** (tu IP actual) - MongoDB Atlas detectará automáticamente tu IP
    - O **Allow Access from Anywhere** (0.0.0.0/0) - ⚠️ Solo para desarrollo
 4. Haz clic en **Confirm**
+
+**💡 Cómo ver tu IP pública actual:**
+
+Si necesitas ver tu IP pública antes de configurarla manualmente, usa estos comandos:
+
+**Windows (PowerShell):**
+```powershell
+# Opción 1: Usando Invoke-WebRequest
+(Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+
+# Opción 2: Usando curl (si está disponible)
+curl https://api.ipify.org
+
+# Opción 3: Usando nslookup
+nslookup myip.opendns.com resolver1.opendns.com
+```
+
+**Windows (CMD):**
+```cmd
+curl https://api.ipify.org
+```
+
+**Linux/Mac (Terminal):**
+```bash
+# Opción 1: Usando curl
+curl https://api.ipify.org
+
+# Opción 2: Usando wget
+wget -qO- https://api.ipify.org
+
+# Opción 3: Usando dig
+dig +short myip.opendns.com @resolver1.opendns.com
+```
+
+**Navegador Web (Más fácil):**
+Simplemente visita: https://api.ipify.org o https://whatismyipaddress.com/
+
+**Nota**: MongoDB Atlas generalmente detecta automáticamente tu IP cuando haces clic en "Add Current IP Address", pero estos comandos son útiles si necesitas verificar tu IP o agregarla manualmente.
 
 ### 2.4 Obtener Connection String
 
@@ -134,7 +187,7 @@ exit
 
 ---
 
-## 3. Paso 2: Configurar Redis (Opcional - Gratis)
+## 3. Paso 2: Configurar Redis (Opcional)
 
 > **Nota**: Redis es opcional. El backend funciona sin Redis, pero algunas funcionalidades de cache pueden estar limitadas.
 
@@ -185,231 +238,317 @@ exit
 
 ---
 
-## 4. Paso 3: Desplegar Backend (Gratis)
+## 4. Paso 3: Preparar el Proyecto para cPanel
 
-Vamos a usar **Render** como ejemplo (es el más fácil). También incluiremos instrucciones para Railway.
+### 4.1 Preparar el Backend
 
-### Opción A: Render (Recomendado)
+Antes de subir a cPanel, necesitas preparar el proyecto:
 
-#### 4.1 Crear Cuenta en Render
-
-1. Ve a: https://render.com/
-2. Haz clic en **Get Started for Free**
-3. Regístrate con GitHub (recomendado) o email
-
-#### 4.2 Preparar el Repositorio
-
-**Importante**: Asegúrate de que tu código esté en GitHub, GitLab o Bitbucket.
-
-1. Si no tienes el código en Git:
-   ```bash
-   cd didi-sicuani
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git branch -M main
-   git remote add origin https://github.com/TU_USUARIO/didi-sicuani.git
-   git push -u origin main
+1. **Asegúrate de tener un archivo `.env.example`** en el backend:
+   ```env
+   MONGODB_URI=mongodb+srv://usuario:password@cluster.xxxxx.mongodb.net/didi-sicuani?retryWrites=true&w=majority
+   REDIS_HOST=xxxxx.upstash.io
+   REDIS_PORT=6379
+   REDIS_PASSWORD=tu_password
+   JWT_SECRET=tu-secret-key-super-segura
+   PORT=10000
+   NODE_ENV=production
+   SOCKET_CORS_ORIGIN=https://tu-dominio.com
    ```
 
-2. Asegúrate de tener un archivo `.gitignore` que excluya:
-   - `node_modules/`
-   - `.env`
-   - Archivos sensibles
+2. **Verifica que `package.json` tenga el script `start`**:
+   ```json
+   {
+     "scripts": {
+       "start": "node server.js"
+     }
+   }
+   ```
 
-#### 4.3 Crear Web Service en Render
+3. **Crea un archivo `.htaccess` para el backend** (si usas Apache):
+   ```apache
+   RewriteEngine On
+   RewriteRule ^(.*)$ http://localhost:10000/$1 [P,L]
+   ```
 
-1. En el dashboard de Render, haz clic en **New +**
-2. Selecciona **Web Service**
-3. Conecta tu repositorio:
-   - Si usas GitHub, autoriza Render
-   - Selecciona tu repositorio: `didi-sicuani`
-   - Selecciona la rama: `main`
+### 4.2 Preparar el Frontend
 
-4. Configura el servicio:
-   - **Name**: `didi-sicuani-backend`
-   - **Region**: Elige la más cercana
-   - **Branch**: `main`
-   - **Root Directory**: `backend`
-   - **Runtime**: `Node`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-   - **Plan**: **Free** (750 horas/mes)
+1. **Construye el frontend localmente**:
+   ```bash
+   cd frontend
+   npm install
+   npm run build
+   ```
+   Esto creará la carpeta `dist` con los archivos estáticos.
 
-5. **Variables de Entorno** (las configuramos después, por ahora déjalo vacío)
+2. **Verifica que el build se haya creado correctamente**:
+   - Debe existir la carpeta `frontend/dist`
+   - Debe contener `index.html` y los archivos estáticos
 
-6. Haz clic en **Create Web Service**
+### 4.3 Comprimir Archivos (Opcional pero Recomendado)
 
-#### 4.4 Configurar Variables de Entorno en Render
+Para facilitar la subida, puedes comprimir:
 
-Una vez creado el servicio:
+1. **Backend**: Comprime la carpeta `backend` (sin `node_modules`)
+2. **Frontend**: Comprime la carpeta `frontend/dist`
 
-1. Ve a tu servicio en Render
-2. Ve a la pestaña **Environment**
-3. Haz clic en **Add Environment Variable**
-4. Agrega las siguientes variables:
+**Nota**: No incluyas `node_modules` en el archivo comprimido, se instalarán en cPanel.
 
-```env
-# MongoDB
-MONGODB_URI=mongodb+srv://didi-sicuani-user:TU_PASSWORD@didi-sicuani-cluster.xxxxx.mongodb.net/didi-sicuani?retryWrites=true&w=majority
+## 5. Paso 4: Desplegar Backend en cPanel
 
-# Redis (Opcional - si configuraste Upstash)
-REDIS_HOST=xxxxx.upstash.io
-REDIS_PORT=6379
-REDIS_PASSWORD=TU_PASSWORD_UPSTASH
+### 5.1 Acceder a cPanel
 
-# JWT
-JWT_SECRET=tu-secret-key-super-segura-y-larga-minimo-32-caracteres
+1. Accede a tu cPanel:
+   - URL: `https://tu-dominio.com:2083` o `https://cpanel.tu-dominio.com`
+   - O la URL proporcionada por tu proveedor de hosting
+2. Inicia sesión con tus credenciales
 
-# Server
-PORT=10000
-NODE_ENV=production
+### 5.2 Crear Subdominio para el Backend (Recomendado)
 
-# Socket.io CORS (URL de tu frontend - la configurarás después)
-SOCKET_CORS_ORIGIN=https://tu-frontend.vercel.app
+1. En cPanel, busca **Subdomains** o **Subdominios**
+2. Crea un nuevo subdominio:
+   - **Subdomain**: `api`
+   - **Domain**: Tu dominio principal
+   - **Document Root**: Se creará automáticamente (ej: `/home/usuario/api.tudominio.com`)
+3. Haz clic en **Create**
+4. **Guarda la ruta del Document Root**, la necesitarás
+
+**Alternativa**: Si prefieres usar un subdirectorio, puedes usar `/home/usuario/public_html/api`
+
+### 5.3 Subir Archivos del Backend
+
+**Opción A: Usando File Manager (Recomendado para principiantes)**
+
+1. En cPanel, busca **File Manager**
+2. Navega a la carpeta del subdominio creado (ej: `api.tudominio.com`)
+3. Haz clic en **Upload** en la barra superior
+4. Sube todos los archivos del backend (o el archivo comprimido y extráelo)
+5. **Importante**: No subas `node_modules`, se instalarán después
+
+**Opción B: Usando FTP**
+
+1. Usa un cliente FTP (FileZilla, WinSCP, etc.)
+2. Conecta con tus credenciales FTP
+3. Navega a la carpeta del subdominio
+4. Sube todos los archivos del backend
+
+**Opción C: Usando Git (Si tu hosting lo permite)**
+
+1. En cPanel, busca **Git Version Control**
+2. Crea un nuevo repositorio
+3. Clona tu repositorio en la carpeta del subdominio
+
+### 5.4 Instalar Node.js y Configurar la Aplicación
+
+1. En cPanel, busca **Node.js Selector** o **Setup Node.js App**
+2. Haz clic en **Create Application**
+3. Configura:
+   - **Node.js Version**: Selecciona la última versión LTS (ej: 18.x o 20.x)
+   - **Application Mode**: Production
+   - **Application Root**: La carpeta de tu subdominio (ej: `api.tudominio.com`)
+   - **Application URL**: `api.tudominio.com` (o el subdominio que creaste)
+   - **Application Startup File**: `server.js` (o el archivo principal de tu backend)
+4. Haz clic en **Create**
+
+### 5.5 Instalar Dependencias
+
+1. En la aplicación Node.js creada, verás opciones como **Run NPM Install**
+2. Haz clic en **Run NPM Install** para instalar las dependencias
+3. Espera a que termine la instalación
+
+**Alternativa**: Si no hay esta opción, puedes usar SSH:
+```bash
+cd ~/api.tudominio.com
+npm install --production
 ```
 
-5. Haz clic en **Save Changes**
+### 5.6 Configurar Variables de Entorno
 
-#### 4.5 Verificar Despliegue del Backend
+1. En la aplicación Node.js, busca **Environment Variables** o **Variables de Entorno**
+2. Agrega las siguientes variables:
 
-1. Render comenzará a construir y desplegar automáticamente
-2. Puedes ver el progreso en la pestaña **Logs**
-3. Una vez completado, verás:
-   - **URL**: `https://didi-sicuani-backend.onrender.com`
-   - Estado: **Live**
+```env
+MONGODB_URI=mongodb+srv://usuario:password@cluster.xxxxx.mongodb.net/didi-sicuani?retryWrites=true&w=majority
+REDIS_HOST=xxxxx.upstash.io
+REDIS_PORT=6379
+REDIS_PASSWORD=tu_password
+JWT_SECRET=tu-secret-key-super-segura-de-al-menos-32-caracteres
+PORT=10000
+NODE_ENV=production
+SOCKET_CORS_ORIGIN=https://tu-dominio.com
+```
 
-4. Prueba el health check:
-   ```
-   https://didi-sicuani-backend.onrender.com/health
-   ```
-   Debe responder: `{"status":"OK",...}`
+3. **Importante**: Reemplaza `tu-dominio.com` con tu dominio real
+4. Guarda los cambios
 
-**✅ Guarda la URL de tu backend**, la necesitarás para el frontend.
+### 5.7 Iniciar la Aplicación
 
-### Opción B: Railway (Alternativa)
+1. En la aplicación Node.js, busca **Restart App** o **Start Application**
+2. Haz clic para iniciar la aplicación
+3. Verifica que el estado sea **Running**
 
-#### 4.1 Crear Cuenta en Railway
+### 5.8 Verificar el Backend
 
-1. Ve a: https://railway.app/
-2. Haz clic en **Start a New Project**
-3. Regístrate con GitHub
+1. Abre tu navegador y ve a: `https://api.tu-dominio.com/health`
+2. Debe responder: `{"status":"OK",...}`
+3. Si hay errores, revisa los logs en cPanel → **Node.js App** → **View Logs**
 
-#### 4.2 Desplegar desde GitHub
-
-1. Haz clic en **New Project**
-2. Selecciona **Deploy from GitHub repo**
-3. Selecciona tu repositorio: `didi-sicuani`
-4. Railway detectará automáticamente que es un proyecto Node.js
-
-#### 4.3 Configurar el Servicio
-
-1. Railway creará un servicio automáticamente
-2. Haz clic en el servicio
-3. Ve a **Settings**
-4. Configura:
-   - **Root Directory**: `backend`
-   - **Start Command**: `npm start`
-   - **Build Command**: `npm install`
-
-#### 4.4 Configurar Variables de Entorno
-
-1. En el servicio, ve a **Variables**
-2. Agrega las mismas variables que en Render (ver sección 4.4)
-
-#### 4.5 Obtener URL
-
-1. Ve a **Settings** → **Domains**
-2. Haz clic en **Generate Domain**
-3. Obtendrás una URL como: `didi-sicuani-backend.up.railway.app`
+**✅ Guarda la URL de tu backend** (ej: `https://api.tu-dominio.com`)
 
 ---
 
-## 5. Paso 4: Desplegar Frontend (Gratis)
+## 6. Paso 5: Desplegar Frontend en cPanel
 
-Vamos a usar **Vercel** como ejemplo (especialmente bueno para React).
+### 6.1 Configurar Variables de Entorno del Frontend
 
-### 5.1 Crear Cuenta en Vercel
+Antes de construir el frontend, configura las variables de entorno:
 
-1. Ve a: https://vercel.com/
-2. Haz clic en **Sign Up**
-3. Regístrate con GitHub (recomendado)
+1. En tu máquina local, crea o edita `frontend/.env.production`:
+   ```env
+   VITE_API_URL=https://api.tu-dominio.com/api
+   VITE_SOCKET_URL=https://api.tu-dominio.com
+   ```
 
-### 5.2 Importar Proyecto
+2. **Importante**: Reemplaza `tu-dominio.com` con tu dominio real
 
-1. En el dashboard, haz clic en **Add New...** → **Project**
-2. Importa tu repositorio de GitHub
-3. Selecciona: `didi-sicuani`
+### 6.2 Construir el Frontend
 
-### 5.3 Configurar Proyecto
+1. En tu máquina local, navega a la carpeta del frontend:
+   ```bash
+   cd frontend
+   ```
 
-1. Vercel detectará automáticamente que es un proyecto Vite/React
-2. Configura:
-   - **Framework Preset**: Vite
-   - **Root Directory**: `frontend`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-   - **Install Command**: `npm install`
+2. Instala las dependencias (si no lo has hecho):
+   ```bash
+   npm install
+   ```
 
-### 5.4 Configurar Variables de Entorno
+3. Construye el proyecto para producción:
+   ```bash
+   npm run build
+   ```
 
-Antes de desplegar, agrega las variables de entorno:
+4. Verifica que se haya creado la carpeta `dist` con todos los archivos
 
-1. En la configuración del proyecto, ve a **Environment Variables**
-2. Agrega:
+### 6.3 Subir Archivos del Frontend
 
-```env
-# URL del backend (la que obtuviste en el paso 4)
-VITE_API_URL=https://didi-sicuani-backend.onrender.com/api
+**Opción A: Usando File Manager**
 
-# URL del Socket.io (misma que la API, sin /api)
-VITE_SOCKET_URL=https://didi-sicuani-backend.onrender.com
+1. En cPanel, busca **File Manager**
+2. Navega a `public_html` (esta es la carpeta raíz de tu dominio)
+3. **Importante**: Si ya hay archivos, haz una copia de seguridad primero
+4. Sube todos los archivos de la carpeta `frontend/dist`:
+   - Selecciona todos los archivos de `dist`
+   - Súbelos directamente a `public_html`
+   - O comprime `dist` y súbelo, luego extráelo en `public_html`
+
+**Opción B: Usando FTP**
+
+1. Conecta con tu cliente FTP
+2. Navega a `public_html`
+3. Sube todos los archivos de `frontend/dist`
+
+### 6.4 Configurar .htaccess para SPA (Single Page Application)
+
+Como es una aplicación React (SPA), necesitas configurar el servidor para que todas las rutas apunten a `index.html`:
+
+1. En cPanel → **File Manager** → `public_html`
+2. Crea o edita el archivo `.htaccess`
+3. Agrega el siguiente contenido:
+
+```apache
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Habilitar compresión
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# Cache para archivos estáticos
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
 ```
 
-3. Haz clic en **Save**
+4. Guarda el archivo
 
-### 5.5 Desplegar
+### 6.5 Verificar el Frontend
 
-1. Haz clic en **Deploy**
-2. Vercel construirá y desplegará automáticamente
-3. Una vez completado, obtendrás una URL como:
-   ```
-   https://didi-sicuani.vercel.app
-   ```
+1. Abre tu navegador y ve a: `https://tu-dominio.com`
+2. Debe cargar la aplicación React
+3. Abre la consola del navegador (F12) y verifica que no haya errores
+4. Verifica que las peticiones al backend funcionen
 
-### 5.6 Actualizar CORS en Backend
+### 6.6 Actualizar CORS en Backend
 
-**Importante**: Ahora que tienes la URL del frontend, actualiza la variable de entorno en tu backend:
+**Importante**: Ahora que tienes la URL del frontend, actualiza la variable de entorno en el backend:
 
-1. Ve a Render/Railway → Tu servicio backend
+1. En cPanel → **Node.js App** → Tu aplicación backend
 2. Ve a **Environment Variables**
 3. Actualiza `SOCKET_CORS_ORIGIN`:
    ```env
-   SOCKET_CORS_ORIGIN=https://didi-sicuani.vercel.app
+   SOCKET_CORS_ORIGIN=https://tu-dominio.com
    ```
-4. Guarda y espera a que se redespliegue
+4. Guarda y reinicia la aplicación Node.js
 
-### Alternativa: Netlify
+## 7. Paso 6: Configurar Dominio y Subdominios
 
-Si prefieres Netlify:
+### 7.1 Verificar Configuración DNS
 
-1. Ve a: https://www.netlify.com/
-2. Regístrate con GitHub
-3. **New site from Git** → Selecciona tu repositorio
-4. Configura:
-   - **Base directory**: `frontend`
-   - **Build command**: `npm run build`
-   - **Publish directory**: `frontend/dist`
-5. Agrega las mismas variables de entorno que en Vercel
-6. Despliega
+Si usas un dominio externo, asegúrate de que los DNS estén configurados:
+
+1. **Registro A**: Apunta tu dominio a la IP del servidor
+2. **Registro CNAME**: Para el subdominio `api`, apunta a tu dominio principal
+
+### 7.2 Configurar SSL/HTTPS
+
+Es importante tener HTTPS habilitado:
+
+1. En cPanel, busca **SSL/TLS Status** o **Let's Encrypt**
+2. Selecciona tu dominio y subdominio
+3. Haz clic en **Run AutoSSL** o **Install SSL Certificate**
+4. Espera a que se instale el certificado (puede tardar unos minutos)
+
+**Alternativa**: Si tu hosting tiene Let's Encrypt:
+1. Busca **Let's Encrypt** en cPanel
+2. Selecciona tu dominio y subdominio
+3. Instala los certificados SSL
+
+### 7.3 Forzar HTTPS (Opcional pero Recomendado)
+
+1. En cPanel → **File Manager** → `public_html`
+2. Edita el archivo `.htaccess`
+3. Agrega al inicio:
+
+```apache
+# Forzar HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+```
 
 ---
 
-## 6. Paso 5: Configurar Variables de Entorno
+## 8. Paso 7: Configurar Variables de Entorno
 
 ### Resumen de Variables Necesarias
 
-#### Backend (Render/Railway)
+#### Backend (cPanel Node.js App)
+
+Configura estas variables en **Node.js App** → **Environment Variables**:
 
 ```env
 # MongoDB Atlas
@@ -428,15 +567,19 @@ PORT=10000
 NODE_ENV=production
 
 # Socket.io CORS
-SOCKET_CORS_ORIGIN=https://tu-frontend.vercel.app
+SOCKET_CORS_ORIGIN=https://tu-dominio.com
 ```
 
-#### Frontend (Vercel/Netlify)
+#### Frontend (Archivo .env.production)
+
+Crea `frontend/.env.production` antes de construir:
 
 ```env
-VITE_API_URL=https://tu-backend.onrender.com/api
-VITE_SOCKET_URL=https://tu-backend.onrender.com
+VITE_API_URL=https://api.tu-dominio.com/api
+VITE_SOCKET_URL=https://api.tu-dominio.com
 ```
+
+**Importante**: Después de cambiar estas variables, debes reconstruir el frontend y volver a subirlo.
 
 ### Generar JWT_SECRET Seguro
 
@@ -452,40 +595,52 @@ O usa un generador online: https://randomkeygen.com/
 
 ---
 
-## 7. Paso 6: Verificar Despliegue
+## 9. Paso 8: Verificar Despliegue
 
-### 7.1 Verificar Backend
+### 9.1 Verificar Backend
 
 1. **Health Check**:
    ```
-   https://tu-backend.onrender.com/health
+   https://api.tu-dominio.com/health
    ```
    Debe responder: `{"status":"OK",...}`
 
 2. **API Documentation**:
    ```
-   https://tu-backend.onrender.com/api-docs
+   https://api.tu-dominio.com/api-docs
    ```
    Debe mostrar Swagger UI
 
 3. **Probar conexión MongoDB**:
-   - Ve a los logs de Render/Railway
+   - En cPanel → **Node.js App** → Tu aplicación → **View Logs**
    - Debe aparecer: `✅ MongoDB connected`
 
-### 7.2 Verificar Frontend
+4. **Verificar que la aplicación esté corriendo**:
+   - En cPanel → **Node.js App** → Tu aplicación
+   - El estado debe ser **Running**
 
-1. Abre tu URL de Vercel/Netlify
-2. Debe cargar la aplicación
-3. Intenta registrarte o iniciar sesión
-4. Verifica que las peticiones al backend funcionen
+### 9.2 Verificar Frontend
 
-### 7.3 Verificar Socket.io
+1. Abre tu URL: `https://tu-dominio.com`
+2. Debe cargar la aplicación React
+3. Abre la consola del navegador (F12) y verifica que no haya errores
+4. Intenta registrarte o iniciar sesión
+5. Verifica que las peticiones al backend funcionen (en la pestaña Network)
+
+### 9.3 Verificar Socket.io
 
 1. Abre la consola del navegador (F12)
 2. Debe aparecer: `✅ Socket connected: [socket-id]`
 3. Si hay errores de CORS, verifica `SOCKET_CORS_ORIGIN` en el backend
 
-### 7.4 Verificar MongoDB Atlas
+### 9.4 Verificar SSL/HTTPS
+
+1. Verifica que ambas URLs usen HTTPS:
+   - Frontend: `https://tu-dominio.com`
+   - Backend: `https://api.tu-dominio.com`
+2. El navegador debe mostrar el candado de seguridad
+
+### 9.5 Verificar MongoDB Atlas
 
 1. Ve a MongoDB Atlas → **Database**
 2. Haz clic en **Browse Collections**
@@ -494,7 +649,7 @@ O usa un generador online: https://randomkeygen.com/
 
 ---
 
-## 8. Troubleshooting
+## 10. Troubleshooting
 
 ### Error: "MongoDB connection failed"
 
@@ -514,35 +669,64 @@ O usa un generador online: https://randomkeygen.com/
 **Causa**: El frontend no está en la lista de orígenes permitidos
 
 **Solución**:
-1. Verifica `SOCKET_CORS_ORIGIN` en el backend
-2. Debe ser exactamente la URL del frontend (con https://)
-3. Si tienes múltiples URLs, sepáralas por comas:
+1. En cPanel → **Node.js App** → **Environment Variables**
+2. Verifica `SOCKET_CORS_ORIGIN`
+3. Debe ser exactamente la URL del frontend (con https://):
    ```
-   SOCKET_CORS_ORIGIN=https://app1.vercel.app,https://app2.vercel.app
+   SOCKET_CORS_ORIGIN=https://tu-dominio.com
    ```
+4. Si tienes múltiples URLs, sepáralas por comas:
+   ```
+   SOCKET_CORS_ORIGIN=https://tu-dominio.com,https://www.tu-dominio.com
+   ```
+5. Reinicia la aplicación después de cambiar las variables
 
-### Error: "Service sleeping" (Render)
+### Error: "Node.js app not starting"
 
-**Causa**: Render pone a dormir servicios gratuitos después de 15 minutos de inactividad
+**Causa**: La aplicación Node.js no se inicia correctamente
 
 **Solución**:
-1. La primera petición puede tardar 30-60 segundos (cold start)
-2. Considera usar Railway (no duerme) o un servicio pago
-3. O usa un servicio de "ping" para mantenerlo activo (UptimeRobot - gratis)
+1. En cPanel → **Node.js App** → **View Logs**
+2. Revisa los errores en los logs
+3. Verifica que el archivo de inicio sea correcto (ej: `server.js`)
+4. Verifica que todas las variables de entorno estén configuradas
+5. Asegúrate de que el puerto sea el correcto (generalmente 10000 o el asignado por cPanel)
+6. Reinicia la aplicación desde cPanel
 
-### Error: "Build failed"
+### Error: "Cannot find module" o "Module not found"
 
-**Causa**: Dependencias o configuración incorrecta
+**Causa**: Las dependencias no están instaladas
 
 **Solución**:
-1. Verifica los logs de build en Render/Vercel
-2. Asegúrate de que `package.json` tenga el script `start`:
-   ```json
-   "scripts": {
-     "start": "node server.js"
-   }
+1. En cPanel → **Node.js App** → **Run NPM Install**
+2. O usa SSH:
+   ```bash
+   cd ~/api.tudominio.com
+   npm install --production
    ```
-3. Verifica que todas las dependencias estén en `dependencies`, no en `devDependencies`
+3. Reinicia la aplicación
+
+### Error: "Permission denied" al subir archivos
+
+**Causa**: Permisos incorrectos en los archivos
+
+**Solución**:
+1. En cPanel → **File Manager**
+2. Selecciona los archivos/carpetas
+3. Haz clic en **Change Permissions**
+4. Configura:
+   - Archivos: `644`
+   - Carpetas: `755`
+   - Archivos ejecutables: `755`
+
+### Error: "Port already in use"
+
+**Causa**: El puerto está siendo usado por otra aplicación
+
+**Solución**:
+1. En cPanel → **Node.js App** → Edita la aplicación
+2. Cambia el puerto a uno diferente
+3. O detén otras aplicaciones que puedan estar usando el puerto
 
 ### Error: "Socket.io connection failed"
 
@@ -563,57 +747,34 @@ O usa un generador online: https://randomkeygen.com/
 2. Si quieres usar Redis, verifica las credenciales de Upstash
 3. Verifica que la base de datos esté activa en Upstash
 
----
+### Error: "404 Not Found" en rutas del frontend
 
-## 9. Alternativas Gratuitas
+**Causa**: El servidor no está configurado para SPAs
 
-### Backend
+**Solución**:
+1. Verifica que el archivo `.htaccess` esté en `public_html`
+2. Asegúrate de que contenga las reglas de rewrite para SPAs
+3. Verifica que `mod_rewrite` esté habilitado en tu servidor (contacta a tu proveedor si no)
 
-#### Railway
-- **Ventajas**: No duerme, $5 crédito gratis/mes, muy fácil
-- **Desventajas**: Créditos limitados
-- **URL**: https://railway.app/
+### Error: "SSL certificate error"
 
-#### Fly.io
-- **Ventajas**: 3 VMs gratis, muy flexible
-- **Desventajas**: Más técnico, requiere CLI
-- **URL**: https://fly.io/
+**Causa**: El certificado SSL no está instalado o configurado
 
-#### Cyclic
-- **Ventajas**: Especializado en Node.js, muy simple
-- **Desventajas**: Límites más estrictos
-- **URL**: https://cyclic.sh/
+**Solución**:
+1. En cPanel → **SSL/TLS Status**
+2. Verifica que el certificado esté instalado para tu dominio y subdominio
+3. Ejecuta **Run AutoSSL** si está disponible
+4. Espera unos minutos para que se propague
 
-### Frontend
+### Error: "Frontend no carga" o "Página en blanco"
 
-#### Netlify
-- **Ventajas**: Muy fácil, excelente para SPAs
-- **Desventajas**: Menos optimizado para React que Vercel
-- **URL**: https://www.netlify.com/
+**Causa**: Archivos no subidos correctamente o rutas incorrectas
 
-#### Cloudflare Pages
-- **Ventajas**: Muy rápido, CDN global excelente
-- **Desventajas**: Configuración un poco más compleja
-- **URL**: https://pages.cloudflare.com/
-
-### MongoDB
-
-#### MongoDB Atlas (Única opción recomendada)
-- **Ventajas**: Oficial, 512 MB gratis, muy confiable
-- **Desventajas**: Límite de 512 MB (suficiente para desarrollo)
-- **URL**: https://www.mongodb.com/cloud/atlas
-
-### Redis
-
-#### Upstash (Recomendado)
-- **Ventajas**: 10K comandos/día gratis, serverless
-- **Desventajas**: Límite de comandos
-- **URL**: https://upstash.com/
-
-#### Redis Cloud
-- **Ventajas**: 30 MB gratis, tradicional
-- **Desventajas**: Menos flexible que Upstash
-- **URL**: https://redis.com/try-free/
+**Solución**:
+1. Verifica que todos los archivos de `dist` estén en `public_html`
+2. Verifica que `index.html` esté en la raíz de `public_html`
+3. Abre la consola del navegador (F12) y revisa los errores
+4. Verifica que las rutas de los assets sean correctas (puede ser necesario reconstruir)
 
 ---
 
@@ -621,13 +782,20 @@ O usa un generador online: https://randomkeygen.com/
 
 Usa este checklist para verificar que todo esté desplegado:
 
+- [ ] Hosting con cPanel configurado y accesible
+- [ ] Dominio configurado y apuntando al hosting
+- [ ] Subdominio para API creado (ej: `api.tu-dominio.com`)
 - [ ] MongoDB Atlas configurado y funcionando
 - [ ] Redis configurado (opcional)
-- [ ] Backend desplegado en Render/Railway
-- [ ] Backend responde en `/health`
+- [ ] Backend subido a cPanel
+- [ ] Aplicación Node.js creada y configurada en cPanel
+- [ ] Dependencias del backend instaladas
 - [ ] Variables de entorno del backend configuradas
-- [ ] Frontend desplegado en Vercel/Netlify
-- [ ] Variables de entorno del frontend configuradas
+- [ ] Backend responde en `/health`
+- [ ] Frontend construido y subido a `public_html`
+- [ ] Archivo `.htaccess` configurado para SPA
+- [ ] Variables de entorno del frontend configuradas (en `.env.production`)
+- [ ] SSL/HTTPS configurado para dominio y subdominio
 - [ ] CORS configurado correctamente
 - [ ] Socket.io conecta desde el frontend
 - [ ] Puedes registrarte e iniciar sesión
@@ -636,54 +804,66 @@ Usa este checklist para verificar que todo esté desplegado:
 
 ---
 
-## 📊 Costos Totales
+## 📊 Costos y Consideraciones
 
-### Despliegue 100% Gratuito
+### Costos Típicos
 
-| Servicio | Costo Mensual | Límites |
-|----------|---------------|---------|
-| MongoDB Atlas | $0 | 512 MB, suficiente para ~10K documentos |
-| Render Backend | $0 | 750 horas/mes (puede dormir) |
-| Vercel Frontend | $0 | Ilimitado |
-| Upstash Redis | $0 | 10K comandos/día |
-| **TOTAL** | **$0** | **Suficiente para desarrollo y pequeña producción** |
+| Servicio | Costo Mensual | Notas |
+|----------|---------------|-------|
+| Hosting con cPanel | $3-15/mes | Depende del proveedor y plan |
+| Dominio | $10-15/año | Si compras tu propio dominio |
+| MongoDB Atlas | $0 (Free) | 512 MB gratis, suficiente para desarrollo |
+| Upstash Redis | $0 (Free) | 10K comandos/día gratis |
+| **TOTAL** | **$3-15/mes** | **Muy accesible para producción** |
 
-### Si Necesitas Más Recursos
+### Ventajas de usar cPanel
 
-- **MongoDB Atlas M2**: $9/mes (2 GB)
-- **Render Paid**: $7/mes (sin sleep, más recursos)
-- **Railway**: $5/mes (más créditos)
-- **Vercel Pro**: $20/mes (más funciones)
+- ✅ **Control total**: Tienes control completo sobre tu servidor
+- ✅ **Dominio propio**: Puedes usar tu propio dominio
+- ✅ **Sin límites de tiempo**: No hay "sleep" como en servicios gratuitos
+- ✅ **Fácil gestión**: Interfaz gráfica intuitiva
+- ✅ **Escalable**: Puedes actualizar tu plan cuando lo necesites
+
+### Consideraciones
+
+- ⚠️ **Costo**: Requiere un hosting con cPanel (generalmente de pago)
+- ⚠️ **Mantenimiento**: Eres responsable de mantener el servidor actualizado
+- ⚠️ **Recursos**: Los recursos dependen de tu plan de hosting
+- ⚠️ **Backups**: Asegúrate de configurar backups regulares
 
 ---
 
 ## 🎉 ¡Despliegue Completado!
 
-Tu aplicación DiDi-Sicuani está ahora desplegada y accesible desde cualquier lugar del mundo, **completamente gratis**.
+Tu aplicación DiDi-Sicuani está ahora desplegada y accesible desde cualquier lugar del mundo usando cPanel.
 
 ### URLs de tu Aplicación
 
-- **Frontend**: `https://didi-sicuani.vercel.app`
-- **Backend API**: `https://didi-sicuani-backend.onrender.com`
-- **API Docs**: `https://didi-sicuani-backend.onrender.com/api-docs`
+- **Frontend**: `https://tu-dominio.com`
+- **Backend API**: `https://api.tu-dominio.com`
+- **API Docs**: `https://api.tu-dominio.com/api-docs`
 - **MongoDB Atlas**: Dashboard en https://cloud.mongodb.com/
 
 ### Próximos Pasos
 
 1. ✅ Comparte las URLs con tus usuarios
-2. ✅ Configura un dominio personalizado (opcional, puede tener costo)
-3. ✅ Monitorea los logs en Render/Vercel
+2. ✅ Configura backups regulares en cPanel
+3. ✅ Monitorea los logs en cPanel → **Node.js App** → **View Logs**
 4. ✅ Configura alertas en MongoDB Atlas
-5. ✅ Considera usar UptimeRobot para mantener el backend activo (gratis)
+5. ✅ Considera configurar un sistema de monitoreo (UptimeRobot - gratis)
+6. ✅ Actualiza regularmente las dependencias del proyecto
+7. ✅ Configura un sistema de backups automáticos
 
 ---
 
 ## 📚 Recursos Adicionales
 
-- **Render Docs**: https://render.com/docs
-- **Vercel Docs**: https://vercel.com/docs
+- **cPanel Documentation**: https://docs.cpanel.net/
+- **Node.js Selector Guide**: Busca en la documentación de tu proveedor de hosting
 - **MongoDB Atlas Docs**: https://docs.atlas.mongodb.com/
 - **Upstash Docs**: https://docs.upstash.com/
+- **Apache .htaccess Guide**: https://httpd.apache.org/docs/current/howto/htaccess.html
+- **Let's Encrypt**: https://letsencrypt.org/
 
 ---
 

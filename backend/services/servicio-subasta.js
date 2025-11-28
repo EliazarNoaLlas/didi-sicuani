@@ -5,6 +5,7 @@ import SolicitudViaje from '../models/SolicitudViaje.js';
 import Oferta from '../models/Oferta.js';
 import Usuario from '../models/Usuario.js';
 import { io } from '../server.js';
+import servicioContraoferta from './servicio-contraoferta.js';
 
 /**
  * Servicio de Subasta
@@ -13,8 +14,8 @@ import { io } from '../server.js';
  */
 class ServicioSubasta {
   constructor() {
-    // Tiempo de espera para recibir ofertas (5 minutos según RF-009)
-    this.TIEMPO_ESPERA_SUBASTA = 300; // segundos
+    // Tiempo de espera para recibir ofertas (2 minutos según nueva especificación)
+    this.TIEMPO_ESPERA_SUBASTA = 120; // segundos (2 minutos)
     // Tiempo de expiración de una oferta individual (1 minuto)
     this.TIEMPO_EXPIRACION_OFERTA = 60; // segundos
     // Máximo de rondas de negociación permitidas
@@ -290,10 +291,11 @@ class ServicioSubasta {
 
   /**
    * Enviar una oferta de precio por parte de un conductor
+   * Ahora usa el sistema de contraofertas
    * @param {String} idConductor - ID del conductor que envía la oferta
    * @param {String} idSolicitudViaje - ID de la solicitud de viaje
    * @param {Number} precioOfrecido - Precio ofrecido por el conductor
-   * @returns {Object} La oferta creada
+   * @returns {Object} La oferta creada con información de competencia
    */
   async enviarOferta(idConductor, idSolicitudViaje, precioOfrecido) {
     // 1. Validar que el viaje aún esté aceptando ofertas
@@ -343,48 +345,77 @@ class ServicioSubasta {
       throw new Error('Debe especificar un precio válido mayor a cero');
     }
 
-    // 5. Crear oferta en MongoDB
-    const fechaExpiracionOferta = new Date(Date.now() + this.TIEMPO_EXPIRACION_OFERTA * 1000);
+    // 5. Usar el servicio de contraofertas para crear la oferta inicial
+    const resultado = await servicioContraoferta.realizarOfertaInicial(
+      idConductor,
+      idSolicitudViaje,
+      precioOfrecido
+    );
 
-    const datosOferta = {
-      id_solicitud_viaje: idSolicitudViaje,
-      id_conductor: idConductor,
-      tipo_oferta: 'contraoferta', // Todos los bids son ofertas de precio
-      precio_ofrecido: precioOfrecido,
+    const oferta = resultado.oferta;
+
+    // Agregar métricas del conductor a la oferta
+    await Oferta.findByIdAndUpdate(oferta._id, {
       distancia_conductor_km: metricasConductor.distancia_km,
       tiempo_estimado_llegada_min: metricasConductor.tiempo_estimado_llegada_min,
       calificacion_conductor: conductor.informacion_conductor?.calificacion || 5.0,
-      estado: 'pendiente',
-      fecha_expiracion: fechaExpiracionOferta,
-    };
+    });
 
-    const oferta = await Oferta.create(datosOferta);
+    // Obtener oferta actualizada con métricas
+    const ofertaActualizada = await Oferta.findById(oferta._id).populate('id_conductor', 'nombre informacion_conductor');
 
     // 6. Notificar al pasajero vía Socket.io
     if (io) {
-      // Notificar sobre la oferta recibida
-      const objetoOferta = oferta.toObject();
+      const objetoOferta = ofertaActualizada.toObject();
       io.to(`usuario:${solicitudViaje.id_pasajero}`).emit('oferta:recibida', {
         ...objetoOferta,
-        id: oferta._id.toString(), // Asegurar que tenga el campo 'id'
-        _id: oferta._id.toString(), // También incluir _id como string
+        id: ofertaActualizada._id.toString(),
+        _id: ofertaActualizada._id.toString(),
         nombre_conductor: conductor.nombre,
         tipo_vehiculo: conductor.informacion_conductor?.tipo_vehiculo,
         total_viajes: conductor.informacion_conductor?.total_viajes || 0,
         calificacion_conductor: conductor.informacion_conductor?.calificacion || 5.0,
       });
 
-      // Notificar a otros conductores sobre la nueva oferta
-      io.to('conductores').emit('oferta:nueva', {
+      // Notificar a otros conductores sobre la nueva oferta (ofuscado)
+      // NO incluir información específica de la oferta
+      const rangoActual = await servicioContraoferta.calcularRangoMenorOferta(idSolicitudViaje);
+      const roomConductores = io.sockets.adapter.rooms.get('conductores');
+      if (roomConductores) {
+        const datosNotificacion = {
+          idSolicitudViaje: idSolicitudViaje.toString(),
+          mensaje: 'Un conductor ha realizado una oferta',
+          rangoActual: rangoActual,
+        };
+        
+        roomConductores.forEach((socketId) => {
+          const socket = io.sockets.sockets.get(socketId);
+          // Solo notificar a otros conductores, NO al que hizo la oferta
+          if (socket && socket.idUsuario && socket.idUsuario.toString() !== idConductor.toString()) {
+            socket.emit('oferta:nueva', datosNotificacion);
+          }
+        });
+      }
+      
+      // Notificar al conductor que hizo la oferta con su propia oferta
+      io.to(`conductor:${idConductor}`).emit('oferta:creada', {
+        idOferta: ofertaActualizada._id.toString(),
         idSolicitudViaje: idSolicitudViaje.toString(),
-        idOferta: oferta._id.toString(),
-        idConductor: idConductor.toString(),
-        precioOfrecido: oferta.precio_ofrecido,
-        timestamp: new Date(),
+        oferta: {
+          _id: ofertaActualizada._id,
+          precio_ofrecido: ofertaActualizada.precio_ofrecido,
+          precio_inicial: ofertaActualizada.precio_inicial,
+          contraofertas: ofertaActualizada.contraofertas || [],
+          numero_contraofertas: ofertaActualizada.numero_contraofertas || 0,
+        },
+        competencia: resultado.competencia,
       });
     }
 
-    return oferta;
+    return {
+      oferta: ofertaActualizada,
+      competencia: resultado.competencia,
+    };
   }
 
   /**
@@ -592,6 +623,16 @@ class ServicioSubasta {
         // Cancelar por falta de conductores
         await this.cancelarSolicitudViaje(idSolicitudViaje, 'no_hay_conductores_disponibles');
       }
+    } else {
+      // Hay ofertas - notificar al pasajero que la ronda finalizó
+      if (io) {
+        io.to(`usuario:${solicitudViaje.id_pasajero}`).emit('ronda:finalizada', {
+          idSolicitudViaje: idSolicitudViaje.toString(),
+          cantidadOfertas: cantidadOfertas,
+          mensaje: 'La ronda de ofertas ha finalizado. Puedes ver las ofertas recibidas.',
+        });
+      }
+      console.log(`✅ Ronda finalizada para viaje ${idSolicitudViaje} con ${cantidadOfertas} ofertas`);
     }
   }
 

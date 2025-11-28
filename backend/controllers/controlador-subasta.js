@@ -1,4 +1,6 @@
 import servicioPrecios from '../services/servicio-precios.js';
+import servicioSubasta from '../services/servicio-subasta.js';
+import servicioContraoferta from '../services/servicio-contraoferta.js';
 import { getRedisClient } from '../config/redis.js';
 import SolicitudViaje from '../models/SolicitudViaje.js';
 import Oferta from '../models/Oferta.js';
@@ -125,7 +127,7 @@ export const crearSolicitudViaje = async (req, res) => {
  */
 export const enviarOferta = async (req, res) => {
   try {
-    const { id_solicitud_viaje, tipo_oferta, precio_ofrecido } = req.body;
+    const { id_solicitud_viaje, precio_ofrecido } = req.body;
     const idConductor = req.usuario.id;
 
     // Validar que el usuario es conductor
@@ -136,34 +138,131 @@ export const enviarOferta = async (req, res) => {
       });
     }
 
-    // Guardar oferta en MongoDB
-    const datosOferta = {
-      id_solicitud_viaje,
-      id_conductor: idConductor,
-      tipo_oferta,
-      precio_ofrecido: tipo_oferta === 'contraoferta' ? precio_ofrecido : null,
-      estado: 'pendiente',
-      fecha_creacion: new Date(),
-      fecha_expiracion: new Date(Date.now() + 30 * 1000), // 30 segundos
-    };
-
-    const oferta = await Oferta.create(datosOferta);
-
-    // Obtener solicitud de viaje para notificar al pasajero
-    const solicitudViaje = await SolicitudViaje.findById(id_solicitud_viaje);
-    if (solicitudViaje) {
-      io.to(`usuario:${solicitudViaje.id_pasajero}`).emit('oferta:recibida', oferta);
+    // Validar precio
+    if (!precio_ofrecido || precio_ofrecido <= 0) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'Debe especificar un precio válido mayor a cero',
+      });
     }
+
+    // Usar servicio de subasta que ahora integra contraofertas
+    const resultado = await servicioSubasta.enviarOferta(
+      idConductor,
+      id_solicitud_viaje,
+      precio_ofrecido
+    );
 
     res.status(201).json({
       exito: true,
-      datos: oferta,
+      datos: {
+        oferta: resultado.oferta,
+        competencia: resultado.competencia,
+      },
     });
   } catch (error) {
     console.error('❌ Error enviando oferta:', error);
+    res.status(400).json({
+      exito: false,
+      mensaje: error.message || 'Error al enviar oferta',
+    });
+  }
+};
+
+/**
+ * Realizar una contraoferta (mejorar oferta existente)
+ * @param {Object} req - Request con datos de la contraoferta
+ * @param {Object} res - Response
+ */
+export const realizarContraoferta = async (req, res) => {
+  try {
+    const { id_solicitud_viaje, nuevo_monto } = req.body;
+    const idConductor = req.usuario.id;
+
+    // Validar que el usuario es conductor
+    if (req.usuario.tipoUsuario !== 'conductor') {
+      return res.status(403).json({
+        exito: false,
+        mensaje: 'Solo los conductores pueden realizar contraofertas',
+      });
+    }
+
+    // Validar nuevo monto
+    if (!nuevo_monto || nuevo_monto <= 0) {
+      return res.status(400).json({
+        exito: false,
+        mensaje: 'Debe especificar un precio válido mayor a cero',
+      });
+    }
+
+    // Realizar contraoferta
+    const ofertaActualizada = await servicioContraoferta.realizarContraoferta(
+      idConductor,
+      id_solicitud_viaje,
+      nuevo_monto
+    );
+
+    // Obtener información de competencia actualizada
+    const competencia = await servicioContraoferta.obtenerInformacionCompetencia(
+      id_solicitud_viaje,
+      idConductor
+    );
+
+    res.status(200).json({
+      exito: true,
+      datos: {
+        oferta: ofertaActualizada,
+        competencia,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error realizando contraoferta:', error);
+    res.status(400).json({
+      exito: false,
+      mensaje: error.message || 'Error al realizar contraoferta',
+    });
+  }
+};
+
+/**
+ * Obtener información de competencia para un conductor
+ * @param {Object} req - Request con ID de solicitud de viaje
+ * @param {Object} res - Response
+ */
+export const obtenerCompetencia = async (req, res) => {
+  try {
+    const { idSolicitudViaje } = req.params;
+    const idConductor = req.usuario.id;
+
+    // Validar que el usuario es conductor
+    if (req.usuario.tipoUsuario !== 'conductor') {
+      return res.status(403).json({
+        exito: false,
+        mensaje: 'Solo los conductores pueden ver información de competencia',
+      });
+    }
+
+    const competencia = await servicioContraoferta.obtenerInformacionCompetencia(
+      idSolicitudViaje,
+      idConductor
+    );
+
+    if (!competencia) {
+      return res.status(404).json({
+        exito: false,
+        mensaje: 'No tienes una oferta activa para este viaje',
+      });
+    }
+
+    res.status(200).json({
+      exito: true,
+      datos: competencia,
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo competencia:', error);
     res.status(500).json({
       exito: false,
-      mensaje: 'Error al enviar oferta',
+      mensaje: error.message || 'Error al obtener información de competencia',
     });
   }
 };
@@ -230,18 +329,84 @@ export const rechazarOferta = async (req, res) => {
 export const obtenerOfertasPorViaje = async (req, res) => {
   try {
     const { idViaje } = req.params;
+    const Oferta = (await import('../models/Oferta.js')).default;
+    const SolicitudViaje = (await import('../models/SolicitudViaje.js')).default;
 
-    // TODO: Obtener todos los ofertas de una solicitud de viaje
+    // Verificar que el viaje existe
+    const viaje = await SolicitudViaje.findById(idViaje);
+    if (!viaje) {
+      return res.status(404).json({
+        exito: false,
+        mensaje: 'Viaje no encontrado',
+      });
+    }
+
+    // Obtener todas las ofertas pendientes del viaje
+    const ofertas = await Oferta.find({
+      id_solicitud_viaje: idViaje,
+      estado: 'pendiente',
+      fecha_eliminacion: null,
+    })
+    .populate('id_conductor', 'nombre correo telefono informacion_conductor')
+    .sort({ precio_ofrecido: 1 }); // Ordenar por precio ascendente
 
     res.json({
       exito: true,
-      datos: [],
+      datos: ofertas,
     });
   } catch (error) {
     console.error('❌ Error obteniendo ofertas:', error);
     res.status(500).json({
       exito: false,
       mensaje: 'Error al obtener ofertas',
+    });
+  }
+};
+
+/**
+ * Obtener ofertas activas del conductor actual
+ * @param {Object} req - Request
+ * @param {Object} res - Response
+ */
+export const obtenerOfertasActivas = async (req, res) => {
+  try {
+    const idConductor = req.usuario.id;
+
+    // Validar que el usuario es conductor
+    if (req.usuario.tipoUsuario !== 'conductor') {
+      return res.status(403).json({
+        exito: false,
+        mensaje: 'Solo los conductores pueden ver sus ofertas activas',
+      });
+    }
+
+    const Oferta = (await import('../models/Oferta.js')).default;
+    const SolicitudViaje = (await import('../models/SolicitudViaje.js')).default;
+
+    // Obtener todas las ofertas pendientes del conductor
+    const ofertas = await Oferta.find({
+      id_conductor: idConductor,
+      estado: 'pendiente',
+      fecha_eliminacion: null,
+    })
+    .populate('id_solicitud_viaje')
+    .sort({ createdAt: -1 });
+
+    // Filtrar solo las que pertenecen a viajes activos
+    const ofertasActivas = ofertas.filter(oferta => {
+      const viaje = oferta.id_solicitud_viaje;
+      return viaje && viaje.estado === 'subasta_activa';
+    });
+
+    res.json({
+      exito: true,
+      datos: ofertasActivas,
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo ofertas activas:', error);
+    res.status(500).json({
+      exito: false,
+      mensaje: 'Error al obtener ofertas activas',
     });
   }
 };

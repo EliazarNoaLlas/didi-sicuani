@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, param } from 'express-validator';
-import { crearSolicitudViaje, enviarOferta, aceptarOferta, rechazarOferta, obtenerOfertasPorViaje } from '../controllers/controlador-subasta.js';
+import { crearSolicitudViaje, enviarOferta, aceptarOferta, rechazarOferta, obtenerOfertasPorViaje, realizarContraoferta, obtenerCompetencia, obtenerOfertasActivas } from '../controllers/controlador-subasta.js';
 import { autenticar } from '../middleware/middleware-autenticacion.js';
 
 const enrutador = express.Router();
@@ -187,6 +187,91 @@ enrutador.get(
   autenticar,
   [param('idViaje').isMongoId().withMessage('Se requiere un ID de viaje válido')],
   obtenerOfertasPorViaje
+);
+
+/**
+ * @swagger
+ * /api/subasta/contraoferta:
+ *   post:
+ *     summary: Realizar contraoferta (mejorar oferta existente)
+ *     tags: [Subasta]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id_solicitud_viaje
+ *               - nuevo_monto
+ *             properties:
+ *               id_solicitud_viaje:
+ *                 type: string
+ *                 example: 507f1f77bcf86cd799439011
+ *               nuevo_monto:
+ *                 type: number
+ *                 example: 15.00
+ *     responses:
+ *       200:
+ *         description: Contraoferta realizada exitosamente
+ */
+// Realizar contraoferta
+enrutador.post(
+  '/contraoferta',
+  autenticar,
+  [
+    body('id_solicitud_viaje').isMongoId().withMessage('Se requiere el ID de la solicitud de viaje'),
+    body('nuevo_monto').isFloat({ min: 0 }).withMessage('Se requiere un precio válido'),
+  ],
+  realizarContraoferta
+);
+
+/**
+ * @swagger
+ * /api/subasta/competencia/{idSolicitudViaje}:
+ *   get:
+ *     summary: Obtener información de competencia (ofuscada)
+ *     tags: [Subasta]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idSolicitudViaje
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 507f1f77bcf86cd799439011
+ *     responses:
+ *       200:
+ *         description: Información de competencia
+ */
+// Obtener información de competencia
+enrutador.get(
+  '/competencia/:idSolicitudViaje',
+  autenticar,
+  [param('idSolicitudViaje').isMongoId().withMessage('Se requiere un ID de solicitud de viaje válido')],
+  obtenerCompetencia
+);
+
+/**
+ * @swagger
+ * /api/subasta/ofertas-activas:
+ *   get:
+ *     summary: Obtener ofertas activas del conductor actual
+ *     tags: [Subasta]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de ofertas activas del conductor
+ */
+// Obtener ofertas activas del conductor
+enrutador.get(
+  '/ofertas-activas',
+  autenticar,
+  obtenerOfertasActivas
 );
 
 export default enrutador;

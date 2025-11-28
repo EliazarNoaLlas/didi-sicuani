@@ -34,6 +34,30 @@ const esquemaOferta = new mongoose.Schema(
       },
       comment: 'Precio ofrecido por el conductor (requerido si es contraoferta)',
     },
+    // Información de contraofertas
+    precio_inicial: {
+      type: Number,
+      comment: 'Precio inicial de la primera oferta del conductor',
+    },
+    contraofertas: [{
+      monto: {
+        type: Number,
+        required: true,
+      },
+      timestamp: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
+    numero_contraofertas: {
+      type: Number,
+      default: 0,
+      comment: 'Número de contraofertas realizadas por este conductor',
+    },
+    ultima_contraoferta_fecha: {
+      type: Date,
+      comment: 'Fecha de la última contraoferta realizada',
+    },
     // Métricas del conductor en el momento de la oferta
     distancia_conductor_km: {
       type: Number,

@@ -2,13 +2,17 @@ import { useState, useEffect } from 'react';
 import { getSocket } from '../services/socket';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import VistaContraofertaConductor from '../components/VistaContraofertaConductor';
 
 export default function RideQueue() {
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [ofertasActivas, setOfertasActivas] = useState({}); // { rideId: oferta }
+  const [mostrarVistaContraoferta, setMostrarVistaContraoferta] = useState(null); // rideId que está mostrando la vista
 
   useEffect(() => {
     loadQueue();
+    cargarOfertasActivas();
     
     const socket = getSocket();
     
@@ -83,6 +87,39 @@ export default function RideQueue() {
         loadQueue();
       };
 
+      // Escuchar actualizaciones de competencia (solo información ofuscada)
+      const handleCompetenciaActualizada = (data) => {
+        const rideId = data.idSolicitudViaje;
+        if (rideId && ofertasActivas[rideId]) {
+          // Solo actualizar información de competencia, NO la oferta actual
+          // La oferta solo se actualiza cuando este conductor hace una contraoferta
+        }
+      };
+      
+      // Escuchar cuando ESTE conductor actualiza su propia oferta
+      const handleOfertaActualizada = (data) => {
+        const rideId = data.idSolicitudViaje;
+        if (rideId && data.oferta) {
+          // Actualizar SOLO la oferta de este conductor
+          setOfertasActivas(prev => ({
+            ...prev,
+            [rideId]: {
+              ...prev[rideId],
+              ...data.oferta,
+            }
+          }));
+          
+          // Si está viendo la vista de contraofertas, actualizar
+          if (mostrarVistaContraoferta === rideId && onActualizar) {
+            onActualizar();
+          }
+        }
+      };
+      
+      socket.on('competencia:actualizada', handleCompetenciaActualizada);
+      socket.on('oferta:actualizada', handleOfertaActualizada);
+      socket.on('oferta:creada', handleOfertaActualizada); // También escuchar cuando se crea una oferta
+
       // Escuchar eventos en español (y mantener compatibilidad con inglés)
       socket.on('viaje:asignado', handleRideMatched);
       socket.on('ride:matched', handleRideMatched); // Compatibilidad
@@ -96,6 +133,9 @@ export default function RideQueue() {
           socket.off('ride:matched', handleRideMatched);
           socket.off('viaje:nuevo', handleNewRide);
           socket.off('ride:new', handleNewRide);
+          socket.off('competencia:actualizada', handleCompetenciaActualizada);
+          socket.off('oferta:actualizada', handleOfertaActualizada);
+          socket.off('oferta:creada', handleOfertaActualizada);
         }
       };
     } else {
@@ -181,10 +221,24 @@ export default function RideQueue() {
     }
 
     try {
+      const rideId = selectedRide._id || selectedRide.id;
       // El backend usa /viajes/:id/bids (en inglés) y espera 'offered_price'
-      await api.post(`/viajes/${selectedRide._id}/bids`, {
+      const response = await api.post(`/viajes/${rideId}/bids`, {
         offered_price: parseFloat(bidPrice),
       });
+      
+      // Guardar la oferta activa
+      if (response.data.datos) {
+        const oferta = response.data.datos.oferta || response.data.datos;
+        setOfertasActivas(prev => ({
+          ...prev,
+          [rideId]: oferta
+        }));
+        
+        // Mostrar vista de contraofertas
+        setMostrarVistaContraoferta(rideId);
+      }
+      
       toast.success('✅ Oferta enviada exitosamente');
       setShowBidModal(false);
       setSelectedRide(null);
@@ -197,6 +251,49 @@ export default function RideQueue() {
                            error.message || 
                            'Error al enviar oferta';
       toast.error(mensajeError);
+    }
+  };
+
+  // Cargar ofertas activas del conductor
+  const cargarOfertasActivas = async () => {
+    try {
+      // Obtener todas las ofertas pendientes del conductor
+      const response = await api.get('/subasta/ofertas-activas');
+      if (response.data.exito && response.data.datos) {
+        const ofertas = Array.isArray(response.data.datos) ? response.data.datos : [response.data.datos];
+        const ofertasMap = {};
+        ofertas.forEach(oferta => {
+          const rideId = oferta.id_solicitud_viaje?._id || oferta.id_solicitud_viaje;
+          if (rideId) {
+            ofertasMap[rideId] = oferta;
+          }
+        });
+        setOfertasActivas(ofertasMap);
+      }
+    } catch (error) {
+      // Si el endpoint no existe, intentar cargar desde cada viaje
+      console.log('No se pudo cargar ofertas activas desde endpoint dedicado');
+    }
+  };
+
+  // Cargar oferta activa para un viaje específico
+  const cargarOfertaParaViaje = async (rideId) => {
+    try {
+      const response = await api.get(`/viajes/${rideId}`);
+      if (response.data.exito && response.data.datos) {
+        const datos = response.data.datos;
+        const ofertas = datos.ofertas || datos.bids || [];
+        // Buscar la oferta del conductor actual
+        const ofertaConductor = ofertas.find(o => o.estado === 'pendiente' || o.status === 'pending');
+        if (ofertaConductor) {
+          setOfertasActivas(prev => ({
+            ...prev,
+            [rideId]: ofertaConductor
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando oferta para viaje:', error);
     }
   };
 
@@ -272,6 +369,40 @@ export default function RideQueue() {
           <p className="text-sm text-gray-400 mt-2">
             Las nuevas solicitudes aparecerán aquí automáticamente
           </p>
+        </div>
+      ) : mostrarVistaContraoferta ? (
+        // Mostrar vista de contraofertas para el viaje seleccionado
+        <div className="space-y-4">
+          {(() => {
+            const ride = rides.find(r => {
+              const rideId = r._id || r.id;
+              return rideId === mostrarVistaContraoferta;
+            });
+            const oferta = ofertasActivas[mostrarVistaContraoferta];
+            
+            if (!ride) {
+              return <div className="p-6">Viaje no encontrado</div>;
+            }
+            
+            return (
+              <div key={mostrarVistaContraoferta}>
+                <button
+                  onClick={() => setMostrarVistaContraoferta(null)}
+                  className="mb-4 text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  ← Volver a la cola de viajes
+                </button>
+                <VistaContraofertaConductor
+                  viaje={ride}
+                  ofertaActual={oferta}
+                  onActualizar={async () => {
+                    await cargarOfertaParaViaje(mostrarVistaContraoferta);
+                    loadQueue();
+                  }}
+                />
+              </div>
+            );
+          })()}
         </div>
       ) : (
         <div className="space-y-4">
@@ -358,12 +489,29 @@ export default function RideQueue() {
                 </div>
 
                 <div className="flex flex-col gap-2 ml-4">
-                  <button
-                    onClick={() => handleMakeBid(ride)}
-                    className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium"
-                  >
-                    💰 Hacer Oferta
-                  </button>
+                  {ofertasActivas[rideId] ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          cargarOfertaParaViaje(rideId);
+                          setMostrarVistaContraoferta(rideId);
+                        }}
+                        className="bg-purple-500 text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition-colors font-medium"
+                      >
+                        🔄 Ver Contraofertas
+                      </button>
+                      <div className="text-xs text-center text-gray-600 mt-1">
+                        Oferta: S/ {ofertasActivas[rideId]?.precio_ofrecido?.toFixed(2) || ofertasActivas[rideId]?.precioOfrecido?.toFixed(2) || 'N/A'}
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => handleMakeBid(ride)}
+                      className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium"
+                    >
+                      💰 Hacer Oferta
+                    </button>
+                  )}
                   <button
                     onClick={() => handleHold(ride._id)}
                     className="bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition-colors font-medium"
@@ -390,10 +538,10 @@ export default function RideQueue() {
         </div>
       )}
 
-      {/* Modal para hacer oferta */}
+      {/* Modal para hacer oferta con vista de contraofertas */}
       {showBidModal && selectedRide && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 my-4">
             <h2 className="text-2xl font-bold mb-4">Hacer Oferta de Precio</h2>
             <div className="mb-4">
               <p className="text-sm text-gray-600 mb-2">
@@ -403,7 +551,7 @@ export default function RideQueue() {
                 <strong>Destino:</strong> {selectedRide.destino?.direccion || selectedRide.destination?.address || 'N/A'}
               </p>
               <p className="text-sm text-gray-600">
-                <strong>Precio sugerido:</strong> S/ {selectedRide.precios?.precio_sugerido || selectedRide.pricing?.suggested_price || 'N/A'}
+                <strong>Precio sugerido:</strong> S/ {selectedRide.precios?.precio_sugerido || selectedRide.pricing?.suggested_price || selectedRide.precio_sugerido_soles || 'N/A'}
               </p>
             </div>
             <div className="mb-4">
@@ -420,6 +568,9 @@ export default function RideQueue() {
                 placeholder="Ej: 15.50"
                 autoFocus
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Después de enviar tu oferta, podrás ver información de competencia y realizar contraofertas
+              </p>
             </div>
             <div className="flex gap-3">
               <button
