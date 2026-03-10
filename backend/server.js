@@ -20,10 +20,36 @@ dotenv.config();
 const aplicacion = express();
 const servidorHttp = createServer(aplicacion);
 
+// Configuración de orígenes permitidos para CORS
+const origenesPermitidos = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5174',
+  'https://didi-sicuani-frontend.onrender.com',
+  'https://frontend-irdyp2zf8-eliazarnoallas-projects.vercel.app',
+  'https://frontend-c5puf2sjv-eliazarnoallas-projects.vercel.app',
+  process.env.SOCKET_CORS_ORIGIN,
+  process.env.FRONTEND_URL,
+].filter(Boolean); // Eliminar valores undefined/null
+
 // Configuración de Socket.io
 const io = new Server(servidorHttp, {
   cors: {
-    origin: process.env.SOCKET_CORS_ORIGIN || "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Permitir requests sin origen (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      if (origenesPermitidos.includes(origin) || origenesPermitidos.some(allowed => origin.includes(allowed))) {
+        callback(null, true);
+      } else {
+        // En desarrollo, permitir cualquier origen localhost
+        if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+          callback(null, true);
+        } else {
+          callback(new Error('No permitido por CORS'));
+        }
+      }
+    },
     methods: ["GET", "POST"],
     credentials: true,
     allowedHeaders: ["Authorization", "Content-Type"],
@@ -42,7 +68,24 @@ aplicacion.use(morgan('dev'));
 
 // Configuración CORS más completa
 const opcionesCors = {
-  origin: process.env.SOCKET_CORS_ORIGIN || "http://localhost:5173",
+  origin: (origin, callback) => {
+    // Permitir requests sin origen (mobile apps, Postman, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Verificar si el origen está en la lista de permitidos
+    if (origenesPermitidos.includes(origin) || origenesPermitidos.some(allowed => origin.includes(allowed))) {
+      callback(null, true);
+    } else {
+      // En desarrollo, permitir cualquier origen localhost
+      if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+        callback(null, true);
+      } else {
+        // En producción, registrar el origen no permitido para debugging
+        console.warn('⚠️ Origen CORS no permitido:', origin);
+        callback(new Error('No permitido por CORS'));
+      }
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
@@ -159,6 +202,17 @@ const iniciarServidor = async () => {
     // Conectar a MongoDB
     await conectarBD();
     console.log('✅ MongoDB conectado');
+
+    // Montar Clean Architecture routes (src/app.js) bajo /api/v2 y como alias directos
+    try {
+      const { buildApp } = await import('./src/app.js');
+      const srcApp = buildApp(io);
+      // Expose under /api/v2 for explicit versioned access
+      aplicacion.use('/api/v2', srcApp);
+      console.log('✅ Clean Architecture modules cargados (/api/v2)');
+    } catch (e) {
+      console.warn('⚠️  Clean Architecture src/app.js no disponible:', e.message);
+    }
 
     // Conectar a Redis (opcional, no crítico)
     try {
